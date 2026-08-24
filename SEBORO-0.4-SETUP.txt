@@ -1,0 +1,27 @@
+SEBORO 0.4 — FEEDBACK REAL EN SUPABASE
+
+1. En Supabase > SQL Editor > New query:
+   abrir el archivo supabase/seboro-0.4-feedback.sql,
+   copiar todo su contenido y ejecutar Run.
+
+2. Copiar al proyecto las carpetas del parche:
+   app
+   lib
+   supabase
+
+3. Reemplazar archivos cuando Windows lo solicite.
+
+4. Reiniciar el servidor local:
+   Ctrl+C en la terminal que corre Next.js
+   npm.cmd run dev
+
+PRUEBA:
+- Iniciar sesión.
+- Terminar una obra.
+- Elegir 4/5 estrellas.
+- Elegir una o más reacciones.
+- Escribir una crítica.
+- Guardar opinión.
+- En Supabase > Table Editor debe aparecer la tabla user_feedback
+  con una fila para ese user_id y book_slug.
+- Perfil debe mostrar valoración, crítica y contadores sincronizados.

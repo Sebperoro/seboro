@@ -1,0 +1,22 @@
+SEBORO 0.3 — CUENTAS + BASE DE DATOS
+
+Dependencia necesaria:
+npm.cmd install @supabase/supabase-js
+
+Después:
+1. Crear un proyecto de Supabase.
+2. Ejecutar supabase/seboro-schema.sql en SQL Editor.
+3. Crear .env.local en la raíz del proyecto SEBORO.
+4. Copiar ahí:
+   NEXT_PUBLIC_SUPABASE_URL=...
+   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=...
+5. Reiniciar npm.cmd run dev.
+6. Entrar a http://localhost:3000/cuenta
+
+Para una prueba local rápida con dos cuentas, se puede desactivar
+temporalmente "Confirm email" desde la configuración del proveedor Email
+en Supabase Auth. En producción debe revisarse la estrategia de verificación.
+
+IMPORTANTE:
+Nunca poner service_role, secret keys ni contraseña de base de datos
+en NEXT_PUBLIC_* ni compartirlas con el navegador.
