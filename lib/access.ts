@@ -8,9 +8,9 @@ export type AccessProfile = {
   role: UserRole;
 };
 
-function withTimeout<T>(promise: Promise<T>, ms = 6000): Promise<T> {
+function withTimeout<T>(promise: PromiseLike<T>, ms = 6000): Promise<T> {
   return Promise.race([
-    promise,
+    Promise.resolve(promise),
     new Promise<T>((_, reject) =>
       setTimeout(
         () => reject(new Error("La comprobación de permisos tardó demasiado.")),
@@ -22,6 +22,7 @@ function withTimeout<T>(promise: Promise<T>, ms = 6000): Promise<T> {
 
 export async function getAccessProfile(): Promise<AccessProfile | null> {
   const supabase = getSupabaseBrowserClient();
+
   if (!supabase) throw new Error("Supabase no está configurado.");
 
   const {
@@ -30,6 +31,7 @@ export async function getAccessProfile(): Promise<AccessProfile | null> {
   } = await withTimeout(supabase.auth.getSession());
 
   if (sessionError) throw new Error(sessionError.message);
+
   if (!session?.user) return null;
 
   const { data, error } = await withTimeout(
@@ -41,6 +43,7 @@ export async function getAccessProfile(): Promise<AccessProfile | null> {
   );
 
   if (error) throw new Error(error.message);
+
   if (!data) return null;
 
   return {

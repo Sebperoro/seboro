@@ -338,10 +338,14 @@ export default function PublishedReaderPage() {
       return;
     }
 
-    async function saveProgress() {
+    const currentBundle = bundle;
+
+    async function saveProgress(
+      activeBundle: PublicWorkBundle
+    ) {
       if (loggedIn) {
         await patchUserBook(
-          bundle.work.slug,
+          activeBundle.work.slug,
           {
             progress:
               chapterIndex,
@@ -351,19 +355,19 @@ export default function PublishedReaderPage() {
         );
       } else {
         localStorage.setItem(
-          `seboro-progress:${bundle.work.slug}`,
+          `seboro-progress:${activeBundle.work.slug}`,
           String(
             chapterIndex
           )
         );
 
         updateLocalHistory(
-          bundle.work.slug
+          activeBundle.work.slug
         );
       }
     }
 
-    saveProgress();
+    saveProgress(currentBundle);
   }, [
     bundle,
     chapterIndex,

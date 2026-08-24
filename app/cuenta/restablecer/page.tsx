@@ -23,12 +23,13 @@ export default function RestablecerCuentaPage() {
       return;
     }
 
+    const client = supabase;
     let mounted = true;
 
     async function detectRecoverySession() {
       // Supabase puede entregar la recuperación por fragmento/hash
       // o por PKCE/código dependiendo de la configuración del proyecto.
-      const { data } = await supabase.auth.getSession();
+      const { data } = await client.auth.getSession();
 
       if (!mounted) return;
 
@@ -47,7 +48,7 @@ export default function RestablecerCuentaPage() {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
+    } = client.auth.onAuthStateChange((event, session) => {
       if (!mounted) return;
 
       if (event === "PASSWORD_RECOVERY" || session) {

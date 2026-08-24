@@ -76,28 +76,29 @@ export default function ReaderPage() {
   useEffect(() => {
     if (!book) return;
 
+    const currentBook = book;
     let active = true;
 
-    async function load() {
+    async function load(activeBook: typeof currentBook) {
       const user = await getCurrentUser();
       if (!active) return;
 
       setLoggedIn(Boolean(user));
 
       if (user) {
-        const row = await getUserBook(book.slug);
+        const row = await getUserBook(activeBook.slug);
         if (active && typeof row?.progress === "number") {
           setChapterIndex(
-            Math.min(Math.max(0, row.progress), book.chapters.length - 1)
+            Math.min(Math.max(0, row.progress), activeBook.chapters.length - 1)
           );
         }
 
-        await patchUserBook(book.slug, {
+        await patchUserBook(activeBook.slug, {
           last_opened_at: new Date().toISOString(),
         });
 
         try {
-          const feedback = await getUserFeedback(book.slug);
+          const feedback = await getUserFeedback(activeBook.slug);
           if (active && feedback) {
             setRating(feedback.rating || 0);
             setReactions(feedback.reactions || []);
@@ -107,15 +108,15 @@ export default function ReaderPage() {
           console.error("SEBORO feedback load failed:", error);
         }
       } else {
-        pushLocalHistory(book.slug);
-        const saved = localStorage.getItem(`seboro-progress:${book.slug}`);
+        pushLocalHistory(activeBook.slug);
+        const saved = localStorage.getItem(`seboro-progress:${activeBook.slug}`);
 
         if (saved !== null) {
           const parsed = Number(saved);
           if (
             !Number.isNaN(parsed) &&
             parsed >= 0 &&
-            parsed < book.chapters.length
+            parsed < activeBook.chapters.length
           ) {
             setChapterIndex(parsed);
           }
@@ -128,15 +129,15 @@ export default function ReaderPage() {
         );
         const reviews = readObject<Record<string, string>>(REVIEWS_KEY, {});
 
-        setRating(ratings[book.slug] || 0);
-        setReactions(reactionsMap[book.slug] || []);
-        setReview(reviews[book.slug] || "");
+        setRating(ratings[activeBook.slug] || 0);
+        setReactions(reactionsMap[activeBook.slug] || []);
+        setReview(reviews[activeBook.slug] || "");
       }
 
       if (active) setLoaded(true);
     }
 
-    load();
+    load(currentBook);
 
     return () => {
       active = false;
@@ -144,19 +145,21 @@ export default function ReaderPage() {
   }, [book]);
 
   useEffect(() => {
-    if (!book || !loaded) return;
+    const progressBook = book;
+
+    if (!progressBook || !loaded) return;
 
     if (loggedIn) {
-      patchUserBook(book.slug, {
+      patchUserBook(progressBook.slug, {
         progress: chapterIndex,
         last_opened_at: new Date().toISOString(),
       });
     } else {
       localStorage.setItem(
-        `seboro-progress:${book.slug}`,
+        `seboro-progress:${progressBook.slug}`,
         String(chapterIndex)
       );
-      pushLocalHistory(book.slug);
+      pushLocalHistory(progressBook.slug);
       window.dispatchEvent(new Event("seboro-library-updated"));
     }
   }, [book, chapterIndex, loaded, loggedIn]);
@@ -169,8 +172,9 @@ export default function ReaderPage() {
     );
   }
 
-  const chapter = book.chapters[chapterIndex];
-  const isLast = chapterIndex === book.chapters.length - 1;
+  const currentBook = book;
+  const chapter = currentBook.chapters[chapterIndex];
+  const isLast = chapterIndex === currentBook.chapters.length - 1;
 
   function toggleReaction(id: string) {
     setReactions((current) =>
@@ -182,13 +186,13 @@ export default function ReaderPage() {
 
   async function markFinishedForCurrentUser(hasUser: boolean) {
     if (hasUser) {
-      await patchUserBook(book.slug, {
+      await patchUserBook(currentBook.slug, {
         finished: true,
         progress: chapterIndex,
         last_opened_at: new Date().toISOString(),
       });
     } else {
-      markLocalFinished(book.slug);
+      markLocalFinished(currentBook.slug);
       window.dispatchEvent(new Event("seboro-library-updated"));
     }
   }
@@ -202,24 +206,14 @@ export default function ReaderPage() {
       const user = await getCurrentUser();
       const hasUser = Boolean(user);
 
-      console.log("SEBORO feedback save start", {
-        slug: book.slug,
-        hasUser,
-        rating,
-        reactions,
-        review,
-      });
-
       await markFinishedForCurrentUser(hasUser);
 
       if (hasUser) {
-        const ok = await upsertUserFeedback(book.slug, {
+        const ok = await upsertUserFeedback(currentBook.slug, {
           rating: rating > 0 ? rating : null,
           reactions,
           review: review.trim() ? review.trim() : null,
         });
-
-        console.log("SEBORO feedback save result", { ok });
 
         if (!ok) {
           throw new Error("Supabase no confirmó el guardado.");
@@ -232,13 +226,13 @@ export default function ReaderPage() {
         );
         const reviews = readObject<Record<string, string>>(REVIEWS_KEY, {});
 
-        if (rating > 0) ratings[book.slug] = rating;
-        else delete ratings[book.slug];
+        if (rating > 0) ratings[currentBook.slug] = rating;
+        else delete ratings[currentBook.slug];
 
-        reactionsMap[book.slug] = reactions;
+        reactionsMap[currentBook.slug] = reactions;
 
-        if (review.trim()) reviews[book.slug] = review.trim();
-        else delete reviews[book.slug];
+        if (review.trim()) reviews[currentBook.slug] = review.trim();
+        else delete reviews[currentBook.slug];
 
         localStorage.setItem(RATING_KEY, JSON.stringify(ratings));
         localStorage.setItem(REACTIONS_KEY, JSON.stringify(reactionsMap));
@@ -260,14 +254,14 @@ export default function ReaderPage() {
     <main className="min-h-screen bg-[#f2eee6] text-zinc-900">
       <div className="sticky top-0 z-20 border-b border-black/10 bg-[#f2eee6]/95 backdrop-blur">
         <div className="mx-auto flex max-w-4xl items-center justify-between gap-4 px-5 py-4">
-          <Link href={`/obra/${book.slug}`} className="text-sm font-semibold">
+          <Link href={`/obra/${currentBook.slug}`} className="text-sm font-semibold">
             ← Salir
           </Link>
 
           <div className="min-w-0 text-center">
-            <p className="truncate text-sm font-semibold">{book.title}</p>
+            <p className="truncate text-sm font-semibold">{currentBook.title}</p>
             <p className="text-xs text-zinc-500">
-              {chapterIndex + 1} / {book.chapters.length}
+              {chapterIndex + 1} / {currentBook.chapters.length}
               {loggedIn ? " · sincronizado" : ""}
             </p>
           </div>
@@ -306,7 +300,7 @@ export default function ReaderPage() {
               <button
                 onClick={() =>
                   setChapterIndex((i) =>
-                    Math.min(book.chapters.length - 1, i + 1)
+                    Math.min(currentBook.chapters.length - 1, i + 1)
                   )
                 }
                 className="rounded-full bg-zinc-900 px-6 py-3 font-semibold text-white"
@@ -329,7 +323,7 @@ export default function ReaderPage() {
             Lectura completada
           </p>
           <h1 className="mt-3 text-4xl font-black md:text-5xl">
-            Terminaste {book.title}
+            Terminaste {currentBook.title}
           </h1>
           <p className="mt-4 text-zinc-600">
             Tu valoración, reacciones y crítica se guardan en tu cuenta cuando has iniciado sesión.
