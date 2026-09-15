@@ -1855,17 +1855,17 @@ function DiscoveryMosaicSection({
       </div>
       </div>
       <div className="mt-3 md:hidden">
-        <div className="overflow-hidden rounded-[20px] border border-white/15 bg-[#242220] shadow-[0_14px_34px_rgba(34,30,27,0.22)]">
+        <div className="isolate overflow-hidden rounded-[20px] border border-white/15 bg-[#242220] shadow-[0_14px_34px_rgba(34,30,27,0.22)]">
           <Link
             href={`/publicaciones/${active.work.slug}`}
             className="group block"
           >
-            <div className="relative aspect-[16/9] w-full overflow-hidden rounded-t-[20px] bg-[#eee9e4]">
+            <div className="relative isolate aspect-[16/9] w-full overflow-hidden rounded-t-[20px] bg-[#eee9e4]">
               {active.work.cover_url ? (
                 <>
                   <div
                     aria-hidden="true"
-                    className="absolute inset-0 scale-110 brightness-50 blur-xl"
+                    className="absolute -inset-6 brightness-50 blur-xl"
                     style={{
                       backgroundImage: `url("${active.work.cover_url}")`,
                       backgroundSize: "cover",
