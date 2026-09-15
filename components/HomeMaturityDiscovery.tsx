@@ -1860,7 +1860,7 @@ function DiscoveryMosaicSection({
             href={`/publicaciones/${active.work.slug}`}
             className="group block"
           >
-            <div className="relative aspect-[16/9] w-full overflow-hidden bg-[#eee9e4]">
+            <div className="relative aspect-[16/9] w-full overflow-hidden rounded-t-[20px] bg-[#eee9e4]">
               {active.work.cover_url ? (
                 <>
                   <div
