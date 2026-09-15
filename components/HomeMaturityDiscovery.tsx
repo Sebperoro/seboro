@@ -1854,18 +1854,46 @@ function DiscoveryMosaicSection({
         </div>
       </div>
       </div>
-      <div className="md:hidden">
+      <div className="mt-3 md:hidden">
         <div className="overflow-hidden rounded-[20px] border border-white/15 bg-[#242220] shadow-[0_14px_34px_rgba(34,30,27,0.22)]">
           <Link
             href={`/publicaciones/${active.work.slug}`}
             className="group block"
           >
-            <div
-              className="aspect-[16/9] w-full overflow-hidden bg-[#eee9e4]"
-              style={{
-                background: getWorkCoverBackground(active.work),
-              }}
-            />
+            <div className="relative aspect-[16/9] w-full overflow-hidden bg-[#eee9e4]">
+              {active.work.cover_url ? (
+                <>
+                  <div
+                    aria-hidden="true"
+                    className="absolute inset-0 scale-110 brightness-50 blur-xl"
+                    style={{
+                      backgroundImage: `url("${active.work.cover_url}")`,
+                      backgroundSize: "cover",
+                      backgroundPosition: "center",
+                    }}
+                  />
+
+                  <div
+                    aria-hidden="true"
+                    className="absolute inset-0"
+                    style={{
+                      backgroundImage: `url("${active.work.cover_url}")`,
+                      backgroundSize: "contain",
+                      backgroundPosition: "center",
+                      backgroundRepeat: "no-repeat",
+                    }}
+                  />
+                </>
+              ) : (
+                <div
+                  aria-hidden="true"
+                  className="absolute inset-0"
+                  style={{
+                    background: active.work.cover_style,
+                  }}
+                />
+              )}
+            </div>
           </Link>
 
           <div className="flex flex-col bg-[#34312f]/95 p-4">
