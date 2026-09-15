@@ -1865,7 +1865,7 @@ function DiscoveryMosaicSection({
                 <>
                   <div
                     aria-hidden="true"
-                    className="absolute -inset-6 brightness-50 blur-xl"
+                    className="absolute -inset-16 brightness-50 blur-xl"
                     style={{
                       backgroundImage: `url("${active.work.cover_url}")`,
                       backgroundSize: "cover",
