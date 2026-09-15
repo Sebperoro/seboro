@@ -1,0 +1,3976 @@
+
+============================================================
+ARCHIVO: .\app\autor\configuracion\page.tsx
+============================================================
+"use client";
+
+import Link from "next/link";
+import { useCallback, useEffect, useState } from "react";
+import {
+  activateAuthorRole,
+  claimAuthorWork,
+  ensureMyProfile,
+  listMyAuthorWorks,
+  unclaimAuthorWork,
+  type AuthorWork,
+  type SeboroProfile,
+} from "@/lib/profiles";
+
+export default function AuthorConfigurationPage() {
+  const [profile, setProfile] = useState<SeboroProfile | null>(null);
+  const [works, setWorks] = useState<AuthorWork[]>([]);
+  const [slug, setSlug] = useState("el-reino-de-ceniza");
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    setError("");
+
+    try {
+      const currentProfile = await ensureMyProfile();
+      setProfile(currentProfile);
+      setWorks(currentProfile ? await listMyAuthorWorks() : []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo cargar tu perfil.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  async function becomeAuthor() {
+    setBusy(true);
+    setMessage("");
+    setError("");
+
+    try {
+      await activateAuthorRole();
+      setMessage("Modo autor activado.");
+      await refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo activar el modo autor.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function linkWork() {
+    setBusy(true);
+    setMessage("");
+    setError("");
+
+    try {
+      await claimAuthorWork(slug);
+      setMessage("Obra vinculada correctamente a tu cuenta.");
+      await refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo vincular la obra.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function unlinkWork(bookSlug: string) {
+    setBusy(true);
+    setMessage("");
+    setError("");
+
+    try {
+      await unclaimAuthorWork(bookSlug);
+      setMessage("Vínculo eliminado.");
+      await refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo desvincular.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <main className="min-h-screen bg-zinc-950 px-5 py-10 text-white">
+      <div className="mx-auto max-w-3xl">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">
+              SEBORO · configuración de prueba
+            </p>
+            <h1 className="mt-2 text-3xl font-black">Identidad de autor</h1>
+          </div>
+
+          <Link
+            href="/autor"
+            className="rounded-full border border-white/10 px-4 py-2 text-sm font-semibold text-zinc-300"
+          >
+            Volver
+          </Link>
+        </div>
+
+        {error && (
+          <div className="mt-6 rounded-2xl border border-rose-400/20 bg-rose-400/10 p-4 text-sm font-semibold text-rose-200">
+            {error}
+          </div>
+        )}
+
+        {message && (
+          <div className="mt-6 rounded-2xl border border-emerald-400/20 bg-emerald-400/10 p-4 text-sm font-semibold text-emerald-200">
+            ✓ {message}
+          </div>
+        )}
+
+        {loading ? (
+          <div className="mt-8 rounded-3xl border border-white/10 bg-white/[0.03] p-6 text-zinc-400">
+            Cargando...
+          </div>
+        ) : !profile ? (
+          <div className="mt-8 rounded-3xl border border-white/10 bg-white/[0.03] p-6">
+            <p className="font-bold">Debes iniciar sesión.</p>
+            <Link href="/cuenta" className="mt-3 inline-block underline">
+              Ir a Cuenta
+            </Link>
+          </div>
+        ) : (
+          <>
+            <section className="mt-8 rounded-3xl border border-white/10 bg-white/[0.03] p-6">
+              <p className="text-sm text-zinc-500">Perfil actual</p>
+              <div className="mt-3 flex flex-wrap items-center gap-3">
+                <h2 className="text-xl font-bold">{profile.display_name}</h2>
+                <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-bold uppercase tracking-[0.14em] text-zinc-300">
+                  {profile.role}
+                </span>
+              </div>
+
+              {profile.role === "reader" && (
+                <button
+                  onClick={becomeAuthor}
+                  disabled={busy}
+                  className="mt-5 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-black disabled:opacity-40"
+                >
+                  Activar modo autor
+                </button>
+              )}
+            </section>
+
+            {profile.role !== "reader" && (
+              <section className="mt-6 rounded-3xl border border-white/10 bg-white/[0.03] p-6">
+                <p className="text-sm text-zinc-500">Vincular una obra</p>
+                <h2 className="mt-2 text-xl font-bold">Obras de tu cuenta</h2>
+                <p className="mt-2 text-sm leading-6 text-zinc-400">
+                  Esta pantalla es temporal para probar la arquitectura. En la
+                  publicación real, el vínculo se creará automáticamente cuando
+                  SEBORO apruebe y publique la obra.
+                </p>
+
+                <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+                  <input
+                    value={slug}
+                    onChange={(event) => setSlug(event.target.value)}
+                    placeholder="el-reino-de-ceniza"
+                    className="min-w-0 flex-1 rounded-full border border-white/10 bg-black/30 px-4 py-2.5 text-sm outline-none placeholder:text-zinc-600"
+                  />
+                  <button
+                    onClick={linkWork}
+                    disabled={busy || !slug.trim()}
+                    className="rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-black disabled:opacity-40"
+                  >
+                    Vincular obra
+                  </button>
+                </div>
+
+                <div className="mt-6 space-y-3">
+                  {works.length === 0 ? (
+                    <p className="text-sm text-zinc-500">
+                      Todavía no tienes obras vinculadas.
+                    </p>
+                  ) : (
+                    works.map((work) => (
+                      <div
+                        key={work.book_slug}
+                        className="flex items-center justify-between gap-4 rounded-2xl border border-white/10 bg-black/20 p-4"
+                      >
+                        <div>
+                          <p className="font-semibold">{work.book_slug}</p>
+                          <p className="mt-1 text-xs text-zinc-500">
+                            Autor verificado para esta obra en el prototipo.
+                          </p>
+                        </div>
+
+                        <button
+                          onClick={() => unlinkWork(work.book_slug)}
+                          disabled={busy}
+                          className="text-xs font-semibold text-zinc-500 underline hover:text-white"
+                        >
+                          Desvincular
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </section>
+            )}
+          </>
+        )}
+      </div>
+    </main>
+  );
+}
+
+
+============================================================
+ARCHIVO: .\app\autor\perfil\page.tsx
+============================================================
+"use client";
+
+import Link from "next/link";
+import {
+  useEffect,
+  useState,
+} from "react";
+import TopNav from "@/components/TopNav";
+import {
+  getMyAuthorProfile,
+  saveMyAuthorProfile,
+} from "@/lib/authorProfiles";
+
+export default function AuthorProfileEditorPage() {
+  const [userId, setUserId] =
+    useState<string | null>(null);
+
+  const [penName, setPenName] =
+    useState("");
+
+  const [bio, setBio] =
+    useState("");
+
+  const [genres, setGenres] =
+    useState("");
+
+  const [website, setWebsite] =
+    useState("");
+
+  const [location, setLocation] =
+    useState("");
+
+  const [loading, setLoading] =
+    useState(true);
+
+  const [saving, setSaving] =
+    useState(false);
+
+  const [message, setMessage] =
+    useState("");
+
+  const [allowed, setAllowed] =
+    useState(true);
+
+  useEffect(() => {
+    let active = true;
+
+    async function load() {
+      try {
+        const profile =
+          await getMyAuthorProfile();
+
+        if (!active) return;
+
+        if (!profile) {
+          setAllowed(false);
+          return;
+        }
+
+        setUserId(profile.user_id);
+        setPenName(profile.pen_name);
+        setBio(profile.bio);
+        setGenres(
+          profile.genres.join(", ")
+        );
+        setWebsite(
+          profile.website_url || ""
+        );
+        setLocation(
+          profile.location_text || ""
+        );
+      } catch (err) {
+        if (active) {
+          setMessage(
+            err instanceof Error
+              ? err.message
+              : "No se pudo cargar el perfil."
+          );
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    }
+
+    load();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  async function save() {
+    setSaving(true);
+    setMessage("");
+
+    try {
+      await saveMyAuthorProfile({
+        pen_name: penName,
+        bio,
+        genres: genres
+          .split(",")
+          .map((item) =>
+            item.trim()
+          ),
+        website_url: website,
+        location_text: location,
+      });
+
+      setMessage(
+        "✓ Perfil público actualizado."
+      );
+
+      window.dispatchEvent(
+        new Event(
+          "seboro-profile-updated"
+        )
+      );
+    } catch (err) {
+      setMessage(
+        err instanceof Error
+          ? err.message
+          : "No se pudo guardar."
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <main className="min-h-screen bg-[#0a0a0b] text-white">
+      <TopNav />
+
+      <div className="mx-auto max-w-4xl px-5 py-10 md:px-8">
+        <Link
+          href="/autor"
+          className="text-sm font-semibold text-zinc-400"
+        >
+          ← Panel del autor
+        </Link>
+
+        <p className="mt-8 text-xs uppercase tracking-[0.2em] text-zinc-500">
+          Identidad pública
+        </p>
+
+        <h1 className="mt-2 text-4xl font-black">
+          Perfil de autor
+        </h1>
+
+        <p className="mt-3 max-w-2xl leading-7 text-zinc-400">
+          Esta información será visible
+          para los lectores. No incluye
+          correo, métricas privadas,
+          ventas ni datos personales de
+          tu cuenta.
+        </p>
+
+        {loading ? (
+          <div className="mt-8 text-zinc-500">
+            Cargando...
+          </div>
+        ) : !allowed ? (
+          <div className="mt-8 rounded-3xl border border-rose-400/20 bg-rose-400/10 p-7 text-rose-100">
+            Esta sección es exclusiva
+            para cuentas de autor o
+            administrador.
+          </div>
+        ) : (
+          <section className="mt-8 rounded-3xl border border-white/10 bg-white/[0.03] p-6 md:p-8">
+            <div className="grid gap-6 md:grid-cols-2">
+              <div className="md:col-span-2">
+                <label className="text-sm font-semibold">
+                  Nombre público o
+                  seudónimo
+                </label>
+
+                <input
+                  value={penName}
+                  maxLength={60}
+                  onChange={(event) =>
+                    setPenName(
+                      event.target.value
+                    )
+                  }
+                  className="mt-2 w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 outline-none"
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="text-sm font-semibold">
+                  Biografía
+                </label>
+
+                <textarea
+                  value={bio}
+                  maxLength={800}
+                  onChange={(event) =>
+                    setBio(
+                      event.target.value
+                    )
+                  }
+                  placeholder="Cuéntales a los lectores qué escribes y qué te interesa como autor."
+                  className="mt-2 min-h-40 w-full rounded-2xl border border-white/10 bg-black/20 p-4 outline-none placeholder:text-zinc-600"
+                />
+
+                <p className="mt-2 text-right text-xs text-zinc-600">
+                  {bio.length}/800
+                </p>
+              </div>
+
+              <div>
+                <label className="text-sm font-semibold">
+                  Géneros
+                </label>
+
+                <input
+                  value={genres}
+                  onChange={(event) =>
+                    setGenres(
+                      event.target.value
+                    )
+                  }
+                  placeholder="Misterio, Fantasía, Terror"
+                  className="mt-2 w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 outline-none placeholder:text-zinc-600"
+                />
+
+                <p className="mt-2 text-xs text-zinc-600">
+                  Separa los géneros con
+                  comas.
+                </p>
+              </div>
+
+              <div>
+                <label className="text-sm font-semibold">
+                  Ubicación pública
+                </label>
+
+                <input
+                  value={location}
+                  maxLength={80}
+                  onChange={(event) =>
+                    setLocation(
+                      event.target.value
+                    )
+                  }
+                  placeholder="Guadalajara, México"
+                  className="mt-2 w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 outline-none placeholder:text-zinc-600"
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="text-sm font-semibold">
+                  Sitio web
+                </label>
+
+                <input
+                  value={website}
+                  onChange={(event) =>
+                    setWebsite(
+                      event.target.value
+                    )
+                  }
+                  placeholder="https://..."
+                  className="mt-2 w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 outline-none placeholder:text-zinc-600"
+                />
+              </div>
+            </div>
+
+            <div className="mt-8 flex flex-wrap items-center gap-3">
+              <button
+                onClick={save}
+                disabled={saving}
+                className="rounded-full bg-white px-6 py-3 font-semibold text-black disabled:opacity-50"
+              >
+                {saving
+                  ? "Guardando..."
+                  : "Guardar perfil"}
+              </button>
+
+              {userId && (
+                <Link
+                  href={`/autores/${userId}`}
+                  className="rounded-full border border-white/15 px-6 py-3 font-semibold"
+                >
+                  Ver perfil público
+                </Link>
+              )}
+            </div>
+
+            {message && (
+              <p className="mt-5 text-sm text-zinc-300">
+                {message}
+              </p>
+            )}
+          </section>
+        )}
+      </div>
+    </main>
+  );
+}
+
+
+============================================================
+ARCHIVO: .\app\autor\publicar\page.tsx
+============================================================
+"use client";
+
+import Link from "next/link";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import TopNav from "@/components/TopNav";
+import {
+  createMyWork,
+  getMyWorks,
+  type PublishedWork,
+  type WorkStatus,
+} from "@/lib/publishedWorks";
+
+const covers = [
+  "linear-gradient(135deg,#312e81,#020617)",
+  "linear-gradient(135deg,#7c2d12,#111827)",
+  "linear-gradient(135deg,#064e3b,#0f172a)",
+  "linear-gradient(135deg,#831843,#18181b)",
+  "linear-gradient(135deg,#334155,#030712)",
+];
+
+export default function PublicarPage() {
+  const router = useRouter();
+
+  const [works, setWorks] = useState<PublishedWork[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  const [title, setTitle] = useState("");
+  const [genre, setGenre] = useState("Fantasía");
+  const [synopsis, setSynopsis] = useState("");
+  const [status, setStatus] = useState<WorkStatus>("ongoing");
+  const [price, setPrice] = useState("0");
+  const [cover, setCover] = useState(covers[0]);
+
+  useEffect(() => {
+    let active = true;
+
+    async function load() {
+      setLoading(true);
+      setError("");
+
+      try {
+        const result = await getMyWorks();
+        if (active) setWorks(result);
+      } catch (err) {
+        if (active) {
+          setError(
+            err instanceof Error ? err.message : "No se pudieron cargar tus obras."
+          );
+        }
+      } finally {
+        if (active) setLoading(false);
+      }
+    }
+
+    load();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  async function create() {
+    setBusy(true);
+    setError("");
+
+    try {
+      const work = await createMyWork({
+        title,
+        genre,
+        synopsis,
+        work_status: status,
+        price_mxn: Number(price) || 0,
+        cover_style: cover,
+      });
+
+      router.push(`/autor/publicar/${work.id}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo crear la obra.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <main className="min-h-screen bg-[#0a0a0b] text-white">
+      <TopNav />
+
+      <div className="mx-auto max-w-7xl px-5 py-10 md:px-8">
+        <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+          <div>
+            <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">
+              Estudio del autor
+            </p>
+            <h1 className="mt-2 text-4xl font-black">Publicar una obra</h1>
+            <p className="mt-3 max-w-2xl text-zinc-400">
+              Crea la ficha, escribe capítulos y publícala en el catálogo real de
+              SEBORO.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap gap-3">
+            <Link
+              href="/autor"
+              className="rounded-full border border-white/10 px-5 py-2.5 text-sm font-semibold"
+            >
+              Panel del autor
+            </Link>
+            <Link
+              href="/publicaciones"
+              className="rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-black"
+            >
+              Ver catálogo real
+            </Link>
+          </div>
+        </div>
+
+        {error && (
+          <div className="mt-6 rounded-2xl border border-rose-400/20 bg-rose-400/10 p-4 text-sm font-semibold text-rose-200">
+            {error}
+          </div>
+        )}
+
+        <section className="mt-8 grid gap-8 rounded-3xl border border-white/10 bg-white/[0.03] p-6 lg:grid-cols-[220px_1fr]">
+          <div>
+            <div
+              className="aspect-[2/3] rounded-3xl shadow-2xl ring-1 ring-white/10"
+              style={{ background: cover }}
+            />
+
+            <p className="mt-4 text-sm font-semibold">Portada provisional</p>
+            <div className="mt-3 grid grid-cols-5 gap-2">
+              {covers.map((item) => (
+                <button
+                  key={item}
+                  onClick={() => setCover(item)}
+                  className={`aspect-square rounded-xl border ${
+                    cover === item ? "border-white" : "border-white/10"
+                  }`}
+                  style={{ background: item }}
+                  aria-label="Elegir portada"
+                />
+              ))}
+            </div>
+          </div>
+
+          <div className="grid gap-5">
+            <div>
+              <label className="text-sm font-semibold">Título</label>
+              <input
+                value={title}
+                onChange={(event) => setTitle(event.target.value)}
+                placeholder="Título de la obra"
+                className="mt-2 w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 outline-none"
+              />
+            </div>
+
+            <div className="grid gap-5 sm:grid-cols-3">
+              <div>
+                <label className="text-sm font-semibold">Género</label>
+                <select
+                  value={genre}
+                  onChange={(event) => setGenre(event.target.value)}
+                  className="mt-2 w-full rounded-2xl border border-white/10 bg-zinc-950 px-4 py-3 outline-none"
+                >
+                  <option>Fantasía</option>
+                  <option>Terror</option>
+                  <option>Romance</option>
+                  <option>Misterio</option>
+                  <option>Ciencia ficción</option>
+                  <option>Aventura</option>
+                  <option>Drama</option>
+                  <option>Otro</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-sm font-semibold">Estado</label>
+                <select
+                  value={status}
+                  onChange={(event) =>
+                    setStatus(event.target.value as WorkStatus)
+                  }
+                  className="mt-2 w-full rounded-2xl border border-white/10 bg-zinc-950 px-4 py-3 outline-none"
+                >
+                  <option value="ongoing">En proceso</option>
+                  <option value="finished">Terminada</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-sm font-semibold">Precio</label>
+                <div className="mt-2 flex rounded-2xl border border-white/10 bg-black/20 px-4">
+                  <span className="self-center text-zinc-500">$</span>
+                  <input
+                    value={price}
+                    onChange={(event) =>
+                      setPrice(event.target.value.replace(/[^0-9.]/g, ""))
+                    }
+                    className="min-w-0 flex-1 bg-transparent px-2 py-3 outline-none"
+                  />
+                  <span className="self-center text-zinc-500">MXN</span>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <label className="text-sm font-semibold">Sinopsis</label>
+              <textarea
+                value={synopsis}
+                onChange={(event) => setSynopsis(event.target.value)}
+                placeholder="Describe la obra sin revelar demasiado..."
+                className="mt-2 min-h-40 w-full rounded-2xl border border-white/10 bg-black/20 p-4 outline-none"
+              />
+            </div>
+
+            <div>
+              <button
+                onClick={create}
+                disabled={
+                  busy ||
+                  !title.trim() ||
+                  !genre.trim() ||
+                  !synopsis.trim()
+                }
+                className="rounded-full bg-white px-6 py-3 font-semibold text-black disabled:opacity-40"
+              >
+                {busy ? "Creando..." : "Crear borrador y añadir capítulos"}
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <section className="mt-10">
+          <div className="flex items-end justify-between">
+            <div>
+              <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">
+                Tus borradores y publicaciones
+              </p>
+              <h2 className="mt-2 text-2xl font-bold">Obras creadas en Supabase</h2>
+            </div>
+          </div>
+
+          {loading ? (
+            <div className="mt-5 rounded-2xl border border-white/10 p-6 text-zinc-500">
+              Cargando...
+            </div>
+          ) : works.length === 0 ? (
+            <div className="mt-5 rounded-2xl border border-white/10 p-6 text-zinc-500">
+              Todavía no has creado una obra dinámica.
+            </div>
+          ) : (
+            <div className="mt-5 grid gap-4 md:grid-cols-2">
+              {works.map((work) => (
+                <Link
+                  key={work.id}
+                  href={`/autor/publicar/${work.id}`}
+                  className="grid grid-cols-[80px_1fr] gap-4 rounded-3xl border border-white/10 bg-white/[0.03] p-4 hover:border-white/25"
+                >
+                  <div
+                    className="aspect-[2/3] rounded-xl"
+                    style={{ background: work.cover_style }}
+                  />
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap gap-2">
+                      <span className="rounded-full border border-white/10 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-zinc-400">
+                        {work.publication_status === "published"
+                          ? "Publicada"
+                          : "Borrador"}
+                      </span>
+                    </div>
+                    <h3 className="mt-2 truncate text-lg font-bold">{work.title}</h3>
+                    <p className="mt-1 text-sm text-zinc-500">
+                      {work.genre} ·{" "}
+                      {work.work_status === "ongoing" ? "En proceso" : "Terminada"}
+                    </p>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
+        </section>
+      </div>
+    </main>
+  );
+}
+
+
+============================================================
+ARCHIVO: .\app\autor\publicar\[id]\page.tsx
+============================================================
+"use client";
+
+import Link from "next/link";
+import { useParams } from "next/navigation";
+import {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+import TopNav from "@/components/TopNav";
+import PublishedChapterVersionPanel from "@/components/PublishedChapterVersionPanel";
+import {
+  addChapter,
+  deleteChapter,
+  getMyWorkBundle,
+  getWorkCoverBackground,
+  getWorkReadingStats,
+  publishMyWork,
+  publishSerialChapter,
+  removeMyWorkCover,
+  submitMyWorkForReview,
+  updateChapter,
+  updateMyWork,
+  uploadMyWorkCover,
+  type AgeRating,
+  type PublishedWork,
+  type SerialState,
+  type WorkChapter,
+  type WorkReview,
+  type WorkStatus,
+} from "@/lib/publishedWorks";
+
+function statusLabel(
+  status: PublishedWork["publication_status"]
+) {
+  if (status === "draft") return "Borrador";
+  if (status === "in_review")
+    return "En revisión técnica";
+  if (status === "human_review")
+    return "Pendiente de revisión humana";
+  if (status === "changes_requested")
+    return "Requiere cambios";
+  if (status === "approved")
+    return "Aprobada";
+  return "Publicada";
+}
+
+function ChapterEditor({
+  chapter,
+  locked,
+  onChanged,
+}: {
+  chapter: WorkChapter;
+  locked: boolean;
+  onChanged: () => Promise<void>;
+}) {
+  const [title, setTitle] =
+    useState(chapter.title);
+
+  const [content, setContent] =
+    useState(chapter.content);
+
+  const [busy, setBusy] =
+    useState(false);
+
+  const [message, setMessage] =
+    useState("");
+
+  async function save() {
+    setBusy(true);
+    setMessage("");
+
+    try {
+      await updateChapter(
+        chapter.id,
+        {
+          title,
+          content,
+        }
+      );
+
+      setMessage("Guardado");
+      await onChanged();
+    } catch (err) {
+      setMessage(
+        err instanceof Error
+          ? err.message
+          : "Error"
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function remove() {
+    setBusy(true);
+    setMessage("");
+
+    try {
+      await deleteChapter(
+        chapter.id
+      );
+
+      await onChanged();
+    } catch (err) {
+      setMessage(
+        err instanceof Error
+          ? err.message
+          : "Error"
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <article className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
+          Capítulo {chapter.chapter_number}
+        </p>
+
+        <span className={`rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] ${
+          chapter.chapter_status === "draft"
+            ? "border-amber-300/20 bg-amber-300/10 text-amber-100"
+            : "border-emerald-300/20 bg-emerald-300/10 text-emerald-100"
+        }`}>
+          {chapter.chapter_status === "draft"
+            ? "Borrador"
+            : `Publicado · v${chapter.current_version}`}
+        </span>
+      </div>
+
+      <input
+        value={title}
+        onChange={(event) =>
+          setTitle(
+            event.target.value
+          )
+        }
+        disabled={locked}
+        className="mt-3 w-full bg-transparent text-xl font-bold outline-none disabled:opacity-60"
+      />
+
+      <textarea
+        value={content}
+        onChange={(event) =>
+          setContent(
+            event.target.value
+          )
+        }
+        disabled={locked}
+        className="mt-4 min-h-64 w-full rounded-2xl border border-white/10 bg-black/20 p-4 font-serif leading-7 outline-none disabled:opacity-60"
+      />
+
+      {!locked && (
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          <button
+            onClick={save}
+            disabled={
+              busy ||
+              !title.trim() ||
+              !content.trim()
+            }
+            className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-black disabled:opacity-40"
+          >
+            Guardar capítulo
+          </button>
+
+          <button
+            onClick={remove}
+            disabled={busy}
+            className="rounded-full border border-rose-400/20 px-4 py-2 text-sm font-semibold text-rose-300"
+          >
+            Eliminar
+          </button>
+
+          {message && (
+            <span className="text-sm text-zinc-400">
+              {message}
+            </span>
+          )}
+        </div>
+      )}
+    </article>
+  );
+}
+
+export default function WorkEditorPage() {
+  const params =
+    useParams<{ id: string }>();
+
+  const id = params.id;
+
+  const [work, setWork] =
+    useState<PublishedWork | null>(
+      null
+    );
+
+  const [chapters, setChapters] =
+    useState<WorkChapter[]>([]);
+
+  const [
+    latestReview,
+    setLatestReview,
+  ] =
+    useState<WorkReview | null>(
+      null
+    );
+
+  const [loading, setLoading] =
+    useState(true);
+
+  const [busy, setBusy] =
+    useState(false);
+
+  const [
+    coverBusy,
+    setCoverBusy,
+  ] = useState(false);
+
+  const [error, setError] =
+    useState("");
+
+  const [message, setMessage] =
+    useState("");
+
+  const [title, setTitle] =
+    useState("");
+
+  const [subtitle, setSubtitle] =
+    useState("");
+
+  const [genre, setGenre] =
+    useState("");
+
+  const [tags, setTags] =
+    useState("");
+
+  const [synopsis, setSynopsis] =
+    useState("");
+
+  const [
+    contentWarnings,
+    setContentWarnings,
+  ] = useState("");
+
+  const [
+    languageCode,
+    setLanguageCode,
+  ] = useState("es");
+
+  const [
+    ageRating,
+    setAgeRating,
+  ] =
+    useState<AgeRating>(
+      "Sin clasificar"
+    );
+
+  const [status, setStatus] =
+    useState<WorkStatus>(
+      "ongoing"
+    );
+
+  const [price, setPrice] =
+    useState("0");
+
+  const [serialState, setSerialState] =
+    useState<SerialState>("active");
+  const [releaseFrequency, setReleaseFrequency] =
+    useState("14");
+  const [nextReleaseAt, setNextReleaseAt] =
+    useState("");
+  const [completionTargetAt, setCompletionTargetAt] =
+    useState("");
+  const [authorCommitment, setAuthorCommitment] =
+    useState("");
+
+  const [
+    newChapterTitle,
+    setNewChapterTitle,
+  ] = useState("");
+
+  const [
+    newChapterContent,
+    setNewChapterContent,
+  ] = useState("");
+
+  async function refresh() {
+    setLoading(true);
+    setError("");
+
+    try {
+      const bundle =
+        await getMyWorkBundle(id);
+
+      if (!bundle) {
+        setWork(null);
+        setChapters([]);
+        setLatestReview(null);
+        return;
+      }
+
+      setWork(bundle.work);
+      setChapters(
+        bundle.chapters
+      );
+      setLatestReview(
+        bundle.latestReview
+      );
+
+      setTitle(
+        bundle.work.title
+      );
+      setSubtitle(
+        bundle.work.subtitle
+      );
+      setGenre(
+        bundle.work.genre
+      );
+      setTags(
+        bundle.work.tags.join(
+          ", "
+        )
+      );
+      setSynopsis(
+        bundle.work.synopsis
+      );
+      setContentWarnings(
+        bundle.work.content_warnings.join(
+          ", "
+        )
+      );
+      setLanguageCode(
+        bundle.work.language_code
+      );
+      setAgeRating(
+        bundle.work.age_rating
+      );
+      setStatus(
+        bundle.work.work_status
+      );
+      setPrice(
+        String(
+          bundle.work.price_mxn
+        )
+      );
+      setSerialState(bundle.work.serial_state);
+      setReleaseFrequency(String(bundle.work.release_frequency_days));
+      setNextReleaseAt(bundle.work.next_release_at || "");
+      setCompletionTargetAt(bundle.work.completion_target_at || "");
+      setAuthorCommitment(bundle.work.author_commitment);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "No se pudo cargar la obra."
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    refresh();
+  }, [id]);
+
+  const requiredChapters =
+    status === "ongoing"
+      ? 5
+      : 1;
+
+  const reviewLocked =
+    useMemo(
+      () =>
+        work?.publication_status ===
+          "in_review" ||
+        work?.publication_status ===
+          "human_review",
+      [work]
+    );
+
+  const contentLocked =
+    useMemo(
+      () =>
+        reviewLocked ||
+        work?.publication_status ===
+          "published",
+      [reviewLocked, work]
+    );
+
+  const finishedPublished =
+    work?.publication_status ===
+      "published" &&
+    work?.work_status ===
+      "finished";
+
+  const stats =
+    getWorkReadingStats(
+      chapters
+    );
+
+  const tagList = tags
+    .split(",")
+    .map((item) =>
+      item.trim()
+    )
+    .filter(Boolean);
+
+  const completenessChecks =
+    [
+      Boolean(
+        work?.cover_url
+      ),
+      synopsis.trim().length >=
+        100,
+      tagList.length >= 2,
+      ageRating !==
+        "Sin clasificar",
+      chapters.length >=
+        requiredChapters,
+    ];
+
+  const completeness =
+    Math.round(
+      (completenessChecks.filter(
+        Boolean
+      ).length /
+        completenessChecks.length) *
+        100
+    );
+
+  async function saveMetadata() {
+    setBusy(true);
+    setError("");
+    setMessage("");
+
+    try {
+      const presentation = {
+        subtitle:
+          subtitle.trim(),
+        tags:
+          tags
+            .split(",")
+            .map((item) =>
+              item.trim()
+            )
+            .filter(Boolean),
+        content_warnings:
+          contentWarnings
+            .split(",")
+            .map((item) =>
+              item.trim()
+            )
+            .filter(Boolean),
+        language_code:
+          languageCode.trim() ||
+          "es",
+        age_rating:
+          ageRating,
+      };
+
+      if (contentLocked) {
+        await updateMyWork(
+          id,
+          presentation
+        );
+      } else {
+        await updateMyWork(
+          id,
+          {
+            ...presentation,
+            title:
+              title.trim(),
+            genre:
+              genre.trim(),
+            synopsis:
+              synopsis.trim(),
+            work_status:
+              status,
+            price_mxn:
+              Math.max(
+                0,
+                Number(
+                  price
+                ) || 0
+              ),
+          }
+        );
+      }
+
+      setMessage(
+        contentLocked
+          ? "Presentación editorial guardada."
+          : "Ficha guardada."
+      );
+
+      await refresh();
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "No se pudo guardar."
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function uploadCover(
+    file: File
+  ) {
+    setCoverBusy(true);
+    setError("");
+    setMessage("");
+
+    try {
+      await uploadMyWorkCover(
+        id,
+        file
+      );
+
+      setMessage(
+        "Portada actualizada."
+      );
+
+      await refresh();
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "No se pudo subir la portada."
+      );
+    } finally {
+      setCoverBusy(false);
+    }
+  }
+
+  async function removeCover() {
+    setCoverBusy(true);
+    setError("");
+    setMessage("");
+
+    try {
+      await removeMyWorkCover(
+        id
+      );
+
+      setMessage(
+        "Portada eliminada."
+      );
+
+      await refresh();
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "No se pudo eliminar la portada."
+      );
+    } finally {
+      setCoverBusy(false);
+    }
+  }
+
+  async function saveSerialPlan() {
+    setBusy(true);
+    setError("");
+    setMessage("");
+
+    try {
+      await updateMyWork(id, {
+        serial_state: serialState,
+        release_frequency_days: Math.max(
+          1,
+          Number(releaseFrequency) || 14
+        ),
+        next_release_at: nextReleaseAt || null,
+        completion_target_at: completionTargetAt || null,
+        author_commitment: authorCommitment,
+      });
+
+      setMessage("Plan de publicación guardado.");
+      await refresh();
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "No se pudo guardar el plan."
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function publishChapterNow(chapterId: string) {
+    setBusy(true);
+    setError("");
+    setMessage("");
+
+    try {
+      await publishSerialChapter(chapterId);
+      setMessage("Capítulo publicado y calendario actualizado.");
+      await refresh();
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "No se pudo publicar el capítulo."
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function createChapter() {
+    setBusy(true);
+    setError("");
+    setMessage("");
+
+    try {
+      const nextNumber =
+        chapters.length === 0
+          ? 1
+          : Math.max(
+              ...chapters.map(
+                (chapter) =>
+                  chapter.chapter_number
+              )
+            ) + 1;
+
+      await addChapter(
+        id,
+        nextNumber,
+        newChapterTitle,
+        newChapterContent
+      );
+
+      setNewChapterTitle("");
+      setNewChapterContent("");
+
+      setMessage(
+        `Capítulo ${nextNumber} creado.`
+      );
+
+      await refresh();
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "No se pudo crear el capítulo."
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function submitReview() {
+    setBusy(true);
+    setError("");
+    setMessage("");
+
+    try {
+      const result =
+        await submitMyWorkForReview(
+          id
+        );
+
+      setMessage(
+        result.result ===
+          "human_review"
+          ? "Superó la revisión técnica y fue enviada a revisión humana."
+          : "La revisión técnica encontró cambios necesarios."
+      );
+
+      await refresh();
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "No se pudo enviar a revisión."
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function publish() {
+    setBusy(true);
+    setError("");
+    setMessage("");
+
+    try {
+      await publishMyWork(id);
+
+      setMessage(
+        "La obra ya está publicada en SEBORO."
+      );
+
+      await refresh();
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "No se pudo publicar."
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (loading) {
+    return (
+      <main className="min-h-screen bg-[#0a0a0b] p-10 text-white">
+        Cargando obra...
+      </main>
+    );
+  }
+
+  if (!work) {
+    return (
+      <main className="min-h-screen bg-[#0a0a0b] p-10 text-white">
+        Esta obra no pertenece a tu cuenta.
+      </main>
+    );
+  }
+
+  const coverEditable =
+    !reviewLocked;
+
+  return (
+    <main className="min-h-screen bg-[#0a0a0b] text-white">
+      <TopNav />
+
+      <div className="mx-auto max-w-6xl px-5 py-10 md:px-8">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <Link
+            href="/autor/publicar"
+            className="text-sm font-semibold text-zinc-400"
+          >
+            ← Volver a tus obras
+          </Link>
+
+          {work.publication_status ===
+            "published" && (
+            <Link
+              href={`/publicaciones/${work.slug}`}
+              className="rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-black"
+            >
+              Ver publicación
+            </Link>
+          )}
+        </div>
+
+        <section className="mt-6 grid gap-6 rounded-3xl border border-white/10 bg-white/[0.03] p-6 md:grid-cols-[180px_1fr]">
+          <div>
+            <div
+              className="aspect-[2/3] rounded-2xl border border-white/10 shadow-2xl"
+              style={{
+                background:
+                  getWorkCoverBackground(
+                    work
+                  ),
+              }}
+            />
+
+            <p className="mt-3 text-center text-xs text-zinc-600">
+              JPG, PNG o WEBP · máx. 5 MB
+            </p>
+          </div>
+
+          <div>
+            <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">
+              Estado editorial
+            </p>
+
+            <h1 className="mt-2 text-4xl font-black">
+              {work.title}
+            </h1>
+
+            {work.subtitle && (
+              <p className="mt-2 text-lg text-zinc-400">
+                {work.subtitle}
+              </p>
+            )}
+
+            <div className="mt-4 flex flex-wrap gap-2">
+              <span className="rounded-full border border-white/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.12em] text-zinc-300">
+                {statusLabel(
+                  work.publication_status
+                )}
+              </span>
+
+              <span className="rounded-full border border-white/10 px-3 py-1 text-xs text-zinc-400">
+                {stats.wordCount.toLocaleString(
+                  "es-MX"
+                )}{" "}
+                palabras
+              </span>
+
+              <span className="rounded-full border border-white/10 px-3 py-1 text-xs text-zinc-400">
+                ≈ {stats.readMinutes} min
+              </span>
+            </div>
+
+            <div className="mt-6 max-w-xl">
+              <div className="flex items-center justify-between text-sm">
+                <span className="font-semibold">
+                  Ficha editorial
+                </span>
+
+                <span className="text-zinc-500">
+                  {completeness}% completa
+                </span>
+              </div>
+
+              <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/10">
+                <div
+                  className="h-full rounded-full bg-white"
+                  style={{
+                    width: `${completeness}%`,
+                  }}
+                />
+              </div>
+
+              <p className="mt-2 text-xs leading-5 text-zinc-600">
+                Cuenta portada, sinopsis suficiente, al menos 2 etiquetas,
+                clasificación de edad y estructura mínima de capítulos.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        {error && (
+          <div className="mt-6 rounded-2xl border border-rose-400/20 bg-rose-400/10 p-4 text-rose-200">
+            {error}
+          </div>
+        )}
+
+        {message && (
+          <div className="mt-6 rounded-2xl border border-emerald-400/20 bg-emerald-400/10 p-4 text-emerald-200">
+            ✓ {message}
+          </div>
+        )}
+
+        <section className="mt-8 rounded-3xl border border-white/10 bg-white/[0.03] p-6">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">
+                Portada
+              </p>
+
+              <h2 className="mt-2 text-2xl font-bold">
+                Imagen de la obra
+              </h2>
+            </div>
+
+            {!coverEditable && (
+              <span className="text-sm text-zinc-500">
+                Bloqueada mientras está en revisión.
+              </span>
+            )}
+          </div>
+
+          {coverEditable && (
+            <div className="mt-5 flex flex-wrap items-center gap-3">
+              <label className="cursor-pointer rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-black">
+                {coverBusy
+                  ? "Subiendo..."
+                  : work.cover_url
+                  ? "Cambiar portada"
+                  : "Subir portada"}
+
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  disabled={coverBusy}
+                  className="hidden"
+                  onChange={(event) => {
+                    const file =
+                      event.target.files?.[0];
+
+                    if (file) {
+                      uploadCover(file);
+                    }
+
+                    event.currentTarget.value = "";
+                  }}
+                />
+              </label>
+
+              {work.cover_url && (
+                <button
+                  onClick={removeCover}
+                  disabled={coverBusy}
+                  className="rounded-full border border-rose-400/20 px-5 py-2.5 text-sm font-semibold text-rose-300 disabled:opacity-40"
+                >
+                  Quitar portada
+                </button>
+              )}
+            </div>
+          )}
+        </section>
+
+        <section className="mt-8 rounded-3xl border border-white/10 bg-white/[0.03] p-6">
+          <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">
+            Ficha editorial
+          </p>
+
+          <h2 className="mt-2 text-2xl font-bold">
+            Presentación de la obra
+          </h2>
+
+          {contentLocked && (
+            <p className="mt-3 text-sm leading-6 text-zinc-500">
+              El contenido principal está bloqueado por el estado editorial,
+              pero puedes actualizar portada, subtítulo, etiquetas,
+              advertencias y clasificación cuando la obra no está en revisión.
+            </p>
+          )}
+
+          <div className="mt-6 grid gap-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label className="text-sm font-semibold">
+                  Título
+                </label>
+
+                <input
+                  value={title}
+                  onChange={(event) =>
+                    setTitle(
+                      event.target.value
+                    )
+                  }
+                  disabled={contentLocked}
+                  className="mt-2 w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 disabled:opacity-50"
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-semibold">
+                  Género principal
+                </label>
+
+                <input
+                  value={genre}
+                  onChange={(event) =>
+                    setGenre(
+                      event.target.value
+                    )
+                  }
+                  disabled={contentLocked}
+                  className="mt-2 w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 disabled:opacity-50"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-sm font-semibold">
+                Subtítulo
+              </label>
+
+              <input
+                value={subtitle}
+                maxLength={180}
+                onChange={(event) =>
+                  setSubtitle(
+                    event.target.value
+                  )
+                }
+                disabled={reviewLocked}
+                placeholder="Opcional"
+                className="mt-2 w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 disabled:opacity-50"
+              />
+            </div>
+
+            <div>
+              <label className="text-sm font-semibold">
+                Etiquetas
+              </label>
+
+              <input
+                value={tags}
+                onChange={(event) =>
+                  setTags(
+                    event.target.value
+                  )
+                }
+                disabled={reviewLocked}
+                placeholder="isla, misterio psicológico, faro"
+                className="mt-2 w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 disabled:opacity-50"
+              />
+
+              <p className="mt-2 text-xs text-zinc-600">
+                Separa con comas. Máximo 8.
+              </p>
+            </div>
+
+            <textarea
+              value={synopsis}
+              onChange={(event) =>
+                setSynopsis(
+                  event.target.value
+                )
+              }
+              disabled={contentLocked}
+              className="min-h-36 rounded-2xl border border-white/10 bg-black/20 p-4 disabled:opacity-50"
+            />
+
+            <div>
+              <label className="text-sm font-semibold">
+                Advertencias de contenido
+              </label>
+
+              <input
+                value={contentWarnings}
+                onChange={(event) =>
+                  setContentWarnings(
+                    event.target.value
+                  )
+                }
+                disabled={reviewLocked}
+                placeholder="violencia, duelo, lenguaje fuerte"
+                className="mt-2 w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 disabled:opacity-50"
+              />
+
+              <p className="mt-2 text-xs text-zinc-600">
+                Déjalo vacío si no aplica. Máximo 8.
+              </p>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label className="text-sm font-semibold">
+                  Idioma
+                </label>
+
+                <select
+                  value={languageCode}
+                  onChange={(event) =>
+                    setLanguageCode(
+                      event.target.value
+                    )
+                  }
+                  disabled={reviewLocked}
+                  className="mt-2 w-full rounded-2xl border border-white/10 bg-zinc-950 px-4 py-3 disabled:opacity-50"
+                >
+                  <option value="es">
+                    Español
+                  </option>
+                  <option value="en">
+                    Inglés
+                  </option>
+                  <option value="ja">
+                    Japonés
+                  </option>
+                  <option value="pt">
+                    Portugués
+                  </option>
+                  <option value="fr">
+                    Francés
+                  </option>
+                  <option value="other">
+                    Otro
+                  </option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-sm font-semibold">
+                  Clasificación de edad
+                </label>
+
+                <select
+                  value={ageRating}
+                  onChange={(event) =>
+                    setAgeRating(
+                      event.target.value as AgeRating
+                    )
+                  }
+                  disabled={reviewLocked}
+                  className="mt-2 w-full rounded-2xl border border-white/10 bg-zinc-950 px-4 py-3 disabled:opacity-50"
+                >
+                  <option>
+                    Sin clasificar
+                  </option>
+                  <option>
+                    Todos
+                  </option>
+                  <option>13+</option>
+                  <option>16+</option>
+                  <option>18+</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <select
+                value={status}
+                onChange={(event) =>
+                  setStatus(
+                    event.target.value as WorkStatus
+                  )
+                }
+                disabled={
+                  contentLocked ||
+                  finishedPublished
+                }
+                className="rounded-2xl border border-white/10 bg-zinc-950 px-4 py-3 disabled:opacity-50"
+              >
+                <option value="ongoing">
+                  En proceso
+                </option>
+                <option value="finished">
+                  Terminada
+                </option>
+              </select>
+
+              <input
+                value={price}
+                onChange={(event) =>
+                  setPrice(
+                    event.target.value.replace(
+                      /[^0-9.]/g,
+                      ""
+                    )
+                  )
+                }
+                disabled={contentLocked}
+                className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3 disabled:opacity-50"
+              />
+            </div>
+
+            {!reviewLocked && (
+              <button
+                onClick={saveMetadata}
+                disabled={busy}
+                className="w-fit rounded-full border border-white/10 px-5 py-2.5 font-semibold disabled:opacity-40"
+              >
+                {contentLocked
+                  ? "Guardar presentación"
+                  : "Guardar ficha"}
+              </button>
+            )}
+          </div>
+        </section>
+
+        {work.work_status === "ongoing" && (
+          <section className="mt-8 rounded-3xl border border-white/10 bg-white/[0.03] p-6">
+            <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">
+              Publicación seriada
+            </p>
+
+            <h2 className="mt-2 text-2xl font-bold">
+              Ritmo y compromiso
+            </h2>
+
+            <div className="mt-6 grid gap-4 md:grid-cols-2">
+              <div>
+                <label className="text-sm font-semibold">Estado</label>
+                <select
+                  value={serialState}
+                  onChange={(event) =>
+                    setSerialState(event.target.value as SerialState)
+                  }
+                  className="mt-2 w-full rounded-2xl border border-white/10 bg-zinc-950 px-4 py-3"
+                >
+                  <option value="active">Activa</option>
+                  <option value="paused">En pausa</option>
+                  <option value="abandoned">Abandonada</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-sm font-semibold">
+                  Frecuencia aproximada
+                </label>
+                <select
+                  value={releaseFrequency}
+                  onChange={(event) => setReleaseFrequency(event.target.value)}
+                  className="mt-2 w-full rounded-2xl border border-white/10 bg-zinc-950 px-4 py-3"
+                >
+                  <option value="7">1 capítulo por semana</option>
+                  <option value="14">2 capítulos al mes</option>
+                  <option value="30">1 capítulo al mes</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-sm font-semibold">
+                  Próximo capítulo previsto
+                </label>
+                <input
+                  type="date"
+                  value={nextReleaseAt}
+                  onChange={(event) => setNextReleaseAt(event.target.value)}
+                  className="mt-2 w-full rounded-2xl border border-white/10 bg-zinc-950 px-4 py-3"
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-semibold">
+                  Meta de finalización
+                </label>
+                <input
+                  type="date"
+                  value={completionTargetAt}
+                  onChange={(event) =>
+                    setCompletionTargetAt(event.target.value)
+                  }
+                  className="mt-2 w-full rounded-2xl border border-white/10 bg-zinc-950 px-4 py-3"
+                />
+              </div>
+            </div>
+
+            <textarea
+              value={authorCommitment}
+              maxLength={500}
+              onChange={(event) => setAuthorCommitment(event.target.value)}
+              placeholder="Ej. Publicaré aproximadamente dos capítulos al mes mientras la obra esté activa."
+              className="mt-4 min-h-28 w-full rounded-2xl border border-white/10 bg-black/20 p-4 outline-none placeholder:text-zinc-600"
+            />
+
+            <button
+              onClick={saveSerialPlan}
+              disabled={busy}
+              className="mt-4 rounded-full border border-white/10 px-5 py-2.5 font-semibold disabled:opacity-40"
+            >
+              Guardar plan de publicación
+            </button>
+          </section>
+        )}
+
+        <section className="mt-8">
+          <div className="flex items-end justify-between gap-4">
+            <h2 className="text-2xl font-bold">
+              Capítulos ·{" "}
+              {chapters.length}
+            </h2>
+
+            <span className="text-sm text-zinc-500">
+              Estructura:{" "}
+              {chapters.length}/
+              {requiredChapters}
+            </span>
+          </div>
+
+          <div className="mt-5 space-y-4">
+            {chapters.map((chapter) => (
+              <div key={chapter.id}>
+                <ChapterEditor
+                  chapter={chapter}
+                  locked={
+                    reviewLocked ||
+                    finishedPublished ||
+                    (
+                      work.publication_status === "published" &&
+                      chapter.chapter_status === "published"
+                    )
+                  }
+                  onChanged={refresh}
+                />
+
+                {work.publication_status === "published" &&
+                  chapter.chapter_status === "published" && (
+                    <PublishedChapterVersionPanel
+                      chapter={chapter}
+                      onChanged={refresh}
+                    />
+                  )}
+
+                {work.publication_status === "published" &&
+                  work.work_status === "ongoing" &&
+                  chapter.chapter_status === "draft" && (
+                    <button
+                      onClick={() => publishChapterNow(chapter.id)}
+                      disabled={busy}
+                      className="mt-3 rounded-full bg-emerald-200 px-5 py-2.5 text-sm font-semibold text-emerald-950 disabled:opacity-40"
+                    >
+                      Publicar capítulo
+                    </button>
+                  )}
+              </div>
+            ))}
+          </div>
+
+          {!reviewLocked &&
+            !finishedPublished &&
+            (
+              work.publication_status !== "published" ||
+              work.work_status === "ongoing"
+            ) && (
+              <div className="mt-6 rounded-3xl border border-dashed border-white/15 p-6">
+                {work.publication_status === "published" && (
+                  <div className="mb-5 rounded-2xl border border-amber-300/20 bg-amber-300/10 p-4 text-sm text-amber-100/80">
+                    Los capítulos nuevos se guardan como <b>borrador</b>.
+                    No serán visibles hasta pulsar “Publicar capítulo”.
+                  </div>
+                )}
+
+                <input
+                  value={
+                    newChapterTitle
+                  }
+                  onChange={(event) =>
+                    setNewChapterTitle(
+                      event.target.value
+                    )
+                  }
+                  placeholder={`Título del capítulo ${
+                    chapters.length +
+                    1
+                  }`}
+                  className="w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3"
+                />
+
+                <textarea
+                  value={
+                    newChapterContent
+                  }
+                  onChange={(event) =>
+                    setNewChapterContent(
+                      event.target.value
+                    )
+                  }
+                  placeholder="Contenido del capítulo..."
+                  className="mt-3 min-h-56 w-full rounded-2xl border border-white/10 bg-black/20 p-4"
+                />
+
+                <button
+                  onClick={
+                    createChapter
+                  }
+                  disabled={
+                    busy ||
+                    !newChapterTitle.trim() ||
+                    !newChapterContent.trim()
+                  }
+                  className="mt-4 rounded-full bg-white px-5 py-2.5 font-semibold text-black disabled:opacity-40"
+                >
+                  Añadir capítulo
+                </button>
+              </div>
+            )}
+        </section>
+
+        <section className="mt-10 rounded-3xl border border-white/10 bg-white/[0.03] p-6">
+          <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">
+            Revisión y publicación
+          </p>
+
+          {work.publication_status ===
+          "published" ? (
+            <>
+              <h2 className="mt-2 text-2xl font-bold">
+                Publicada
+              </h2>
+
+              <p className="mt-3 text-zinc-400">
+                La obra ya está disponible para lectores. Puedes seguir
+                actualizando su presentación y portada. Los capítulos ya
+                publicados se corrigen mediante versiones revisadas.
+              </p>
+            </>
+          ) : work.publication_status ===
+            "human_review" ? (
+            <>
+              <h2 className="mt-2 text-2xl font-bold">
+                Pendiente de revisión humana
+              </h2>
+
+              <p className="mt-3 max-w-2xl text-zinc-400">
+                La obra superó los requisitos técnicos. Ahora un administrador
+                debe revisarla antes de que pueda publicarse.
+              </p>
+            </>
+          ) : work.publication_status ===
+            "approved" ? (
+            <>
+              <h2 className="mt-2 text-2xl font-bold">
+                Aprobada para publicar
+              </h2>
+
+              <p className="mt-3 text-zinc-400">
+                La revisión humana fue aprobada. Ya puedes hacer pública la obra.
+              </p>
+
+              <button
+                onClick={publish}
+                disabled={busy}
+                className="mt-5 rounded-full bg-white px-6 py-3 font-semibold text-black disabled:opacity-40"
+              >
+                Publicar obra
+              </button>
+            </>
+          ) : (
+            <>
+              <h2 className="mt-2 text-2xl font-bold">
+                {work.publication_status ===
+                "changes_requested"
+                  ? "Requiere cambios"
+                  : "Enviar a revisión"}
+              </h2>
+
+              {latestReview?.result ===
+                "changes_requested" &&
+                latestReview.issues.length >
+                  0 && (
+                  <div className="mt-5 rounded-2xl border border-amber-300/20 bg-amber-300/10 p-5">
+                    <p className="font-bold text-amber-100">
+                      Cambios técnicos solicitados
+                    </p>
+
+                    <ul className="mt-3 list-disc space-y-2 pl-5 text-sm text-amber-100/80">
+                      {latestReview.issues.map(
+                        (issue) => (
+                          <li key={issue}>
+                            {issue}
+                          </li>
+                        )
+                      )}
+                    </ul>
+                  </div>
+                )}
+
+              {latestReview?.review_type ===
+                "human" &&
+                latestReview.result ===
+                  "changes_requested" &&
+                latestReview.notes && (
+                  <div className="mt-5 rounded-2xl border border-sky-300/20 bg-sky-300/10 p-5">
+                    <p className="font-bold text-sky-100">
+                      Nota del revisor
+                    </p>
+
+                    <p className="mt-2 text-sm leading-6 text-sky-100/80">
+                      {
+                        latestReview.notes
+                      }
+                    </p>
+                  </div>
+                )}
+
+              <button
+                onClick={submitReview}
+                disabled={busy}
+                className="mt-5 rounded-full bg-white px-6 py-3 font-semibold text-black disabled:opacity-40"
+              >
+                {busy
+                  ? "Revisando..."
+                  : "Enviar a revisión"}
+              </button>
+            </>
+          )}
+        </section>
+      </div>
+    </main>
+  );
+}
+
+
+============================================================
+ARCHIVO: .\app\cuenta\page.tsx
+============================================================
+"use client";
+
+import { FormEvent, useEffect, useState } from "react";
+import TopNav from "@/components/TopNav";
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+
+export default function CuentaPage() {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [currentEmail, setCurrentEmail] = useState<string | null>(null);
+  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [message, setMessage] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [configured, setConfigured] = useState(true);
+  const [recoveryBusy, setRecoveryBusy] = useState(false);
+
+  useEffect(() => {
+    const supabase = getSupabaseBrowserClient();
+
+    if (!supabase) {
+      setConfigured(false);
+      return;
+    }
+
+    supabase.auth.getUser().then(({ data }) => {
+      setCurrentEmail(data.user?.email || null);
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setCurrentEmail(session?.user.email || null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) {
+      setMessage("Falta conectar SEBORO con Supabase.");
+      return;
+    }
+
+    setBusy(true);
+    setMessage("");
+
+    if (mode === "signup") {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+      });
+
+      if (error) {
+        setMessage(error.message);
+      } else if (data.session) {
+        setMessage("Cuenta creada. Ya has iniciado sesión.");
+      } else {
+        setMessage("Cuenta creada. Revisa tu correo para confirmar el registro.");
+      }
+    } else {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      setMessage(error ? error.message : "Sesión iniciada correctamente.");
+    }
+
+    setBusy(false);
+  }
+
+  async function sendPasswordRecovery() {
+    const supabase = getSupabaseBrowserClient();
+
+    if (!supabase) {
+      setMessage("Falta conectar SEBORO con Supabase.");
+      return;
+    }
+
+    const cleanEmail = email.trim();
+
+    if (!cleanEmail) {
+      setMessage("Escribe primero el correo de tu cuenta.");
+      return;
+    }
+
+    setRecoveryBusy(true);
+    setMessage("");
+
+    const redirectTo =
+      typeof window !== "undefined"
+        ? `${window.location.origin}/cuenta/restablecer`
+        : undefined;
+
+    const { error } = await supabase.auth.resetPasswordForEmail(
+      cleanEmail,
+      redirectTo ? { redirectTo } : undefined
+    );
+
+    if (error) {
+      setMessage(error.message);
+    } else {
+      // Mensaje neutro para no revelar si un correo existe o no.
+      setMessage(
+        "Si existe una cuenta con ese correo, recibirás un enlace para restablecer la contraseña."
+      );
+    }
+
+    setRecoveryBusy(false);
+  }
+
+  async function signOut() {
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) return;
+
+    await supabase.auth.signOut();
+    setCurrentEmail(null);
+    setMessage("Sesión cerrada.");
+  }
+
+  return (
+    <main className="min-h-screen bg-[#0a0a0b] text-white">
+      <TopNav />
+
+      <div className="mx-auto max-w-5xl px-5 py-12 md:px-8">
+        <section className="rounded-3xl border border-white/10 bg-gradient-to-br from-zinc-800 via-zinc-900 to-black p-7 md:p-10">
+          <p className="text-sm uppercase tracking-[0.2em] text-zinc-500">
+            Cuenta SEBORO
+          </p>
+          <h1 className="mt-2 text-4xl font-black md:text-5xl">
+            {currentEmail ? "Tu sesión está activa." : "Entra a tu biblioteca personal."}
+          </h1>
+          <p className="mt-4 max-w-2xl leading-7 text-zinc-400">
+            Con una cuenta, la biblioteca y el progreso pueden pertenecer a un usuario real en lugar de depender únicamente de este navegador.
+          </p>
+        </section>
+
+        {!configured ? (
+          <div className="mt-8 rounded-3xl border border-amber-300/20 bg-amber-300/10 p-6 text-amber-100">
+            <h2 className="text-xl font-bold">Todavía falta conectar Supabase</h2>
+            <p className="mt-2 text-sm leading-6 text-amber-100/80">
+              El código ya está preparado. Falta agregar el Project URL y la Publishable key en el archivo .env.local.
+            </p>
+          </div>
+        ) : currentEmail ? (
+          <section className="mt-8 rounded-3xl border border-white/10 bg-white/[0.03] p-6">
+            <p className="text-sm text-zinc-500">Sesión iniciada como</p>
+            <p className="mt-2 text-xl font-bold">{currentEmail}</p>
+
+            <div className="mt-6 flex flex-wrap gap-3">
+              <a
+                href="/biblioteca"
+                className="rounded-full bg-white px-5 py-2.5 text-sm font-bold text-black"
+              >
+                Abrir mi biblioteca
+              </a>
+              <button
+                onClick={signOut}
+                className="rounded-full border border-white/15 px-5 py-2.5 text-sm font-semibold"
+              >
+                Cerrar sesión
+              </button>
+            </div>
+          </section>
+        ) : (
+          <section className="mt-8 grid gap-6 lg:grid-cols-[.85fr_1.15fr]">
+            <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
+              <p className="text-sm uppercase tracking-[0.2em] text-zinc-500">
+                Acceso
+              </p>
+              <h2 className="mt-2 text-2xl font-bold">
+                {mode === "signin" ? "Iniciar sesión" : "Crear cuenta"}
+              </h2>
+
+              <div className="mt-6 flex gap-2">
+                <button
+                  onClick={() => {
+                    setMode("signin");
+                    setMessage("");
+                  }}
+                  className={`rounded-full px-4 py-2 text-sm font-semibold ${
+                    mode === "signin" ? "bg-white text-black" : "border border-white/10"
+                  }`}
+                >
+                  Entrar
+                </button>
+                <button
+                  onClick={() => {
+                    setMode("signup");
+                    setMessage("");
+                  }}
+                  className={`rounded-full px-4 py-2 text-sm font-semibold ${
+                    mode === "signup" ? "bg-white text-black" : "border border-white/10"
+                  }`}
+                >
+                  Registrarme
+                </button>
+              </div>
+            </div>
+
+            <form
+              onSubmit={submit}
+              className="rounded-3xl border border-white/10 bg-white/[0.03] p-6"
+            >
+              <label className="text-sm font-semibold">Correo</label>
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                className="mt-2 w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 outline-none focus:border-white/25"
+                placeholder="tu@correo.com"
+              />
+
+              <label className="mt-5 block text-sm font-semibold">Contraseña</label>
+              <input
+                type="password"
+                required
+                minLength={6}
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                className="mt-2 w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 outline-none focus:border-white/25"
+                placeholder="Mínimo 6 caracteres"
+              />
+
+              <button
+                disabled={busy}
+                className="mt-6 rounded-full bg-white px-6 py-3 font-bold text-black disabled:opacity-50"
+              >
+                {busy
+                  ? "Procesando..."
+                  : mode === "signin"
+                  ? "Iniciar sesión"
+                  : "Crear cuenta"}
+              </button>
+
+              {mode === "signin" && (
+                <button
+                  type="button"
+                  onClick={sendPasswordRecovery}
+                  disabled={recoveryBusy}
+                  className="ml-3 mt-6 rounded-full border border-white/15 px-5 py-3 text-sm font-semibold text-zinc-300 transition hover:border-white/30 hover:text-white disabled:opacity-50"
+                >
+                  {recoveryBusy
+                    ? "Enviando..."
+                    : "Olvidé mi contraseña"}
+                </button>
+              )}
+
+              {message && (
+                <div className="mt-5 rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-zinc-300">
+                  {message}
+                </div>
+              )}
+            </form>
+          </section>
+        )}
+      </div>
+    </main>
+  );
+}
+
+
+============================================================
+ARCHIVO: .\app\cuenta\restablecer\page.tsx
+============================================================
+"use client";
+
+import { FormEvent, useEffect, useState } from "react";
+import Link from "next/link";
+import TopNav from "@/components/TopNav";
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+
+export default function RestablecerCuentaPage() {
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [ready, setReady] = useState(false);
+  const [checking, setChecking] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+  const [success, setSuccess] = useState(false);
+
+  useEffect(() => {
+    const supabase = getSupabaseBrowserClient();
+
+    if (!supabase) {
+      setMessage("Falta conectar SEBORO con Supabase.");
+      setChecking(false);
+      return;
+    }
+
+    const client = supabase;
+    let mounted = true;
+
+    async function detectRecoverySession() {
+      // Supabase puede entregar la recuperación por fragmento/hash
+      // o por PKCE/código dependiendo de la configuración del proyecto.
+      const { data } = await client.auth.getSession();
+
+      if (!mounted) return;
+
+      if (data.session) {
+        setReady(true);
+        setChecking(false);
+        return;
+      }
+
+      // onAuthStateChange capturará PASSWORD_RECOVERY cuando Supabase
+      // termine de procesar el enlace.
+      setChecking(false);
+    }
+
+    detectRecoverySession();
+
+    const {
+      data: { subscription },
+    } = client.auth.onAuthStateChange((event, session) => {
+      if (!mounted) return;
+
+      if (event === "PASSWORD_RECOVERY" || session) {
+        setReady(Boolean(session));
+        setChecking(false);
+      }
+    });
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  async function updatePassword(event: FormEvent) {
+    event.preventDefault();
+
+    if (password.length < 6) {
+      setMessage("La contraseña debe tener al menos 6 caracteres.");
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setMessage("Las contraseñas no coinciden.");
+      return;
+    }
+
+    const supabase = getSupabaseBrowserClient();
+
+    if (!supabase) {
+      setMessage("Falta conectar SEBORO con Supabase.");
+      return;
+    }
+
+    setBusy(true);
+    setMessage("");
+
+    const { error } = await supabase.auth.updateUser({
+      password,
+    });
+
+    if (error) {
+      setMessage(error.message);
+    } else {
+      setSuccess(true);
+      setMessage("Contraseña actualizada correctamente.");
+    }
+
+    setBusy(false);
+  }
+
+  return (
+    <main className="min-h-screen bg-[#0a0a0b] text-white">
+      <TopNav />
+
+      <div className="mx-auto max-w-3xl px-5 py-12 md:px-8">
+        <section className="rounded-3xl border border-white/10 bg-gradient-to-br from-zinc-800 via-zinc-900 to-black p-7 md:p-10">
+          <p className="text-sm uppercase tracking-[0.2em] text-zinc-500">
+            Cuenta SEBORO
+          </p>
+
+          <h1 className="mt-2 text-4xl font-black md:text-5xl">
+            Restablecer contraseña
+          </h1>
+
+          <p className="mt-4 max-w-2xl leading-7 text-zinc-400">
+            Crea una contraseña nueva para volver a acceder a tu biblioteca,
+            progreso y perfil.
+          </p>
+        </section>
+
+        <section className="mt-8 rounded-3xl border border-white/10 bg-white/[0.03] p-6">
+          {checking ? (
+            <p className="text-zinc-400">
+              Validando el enlace de recuperación...
+            </p>
+          ) : success ? (
+            <div>
+              <p className="text-lg font-bold text-emerald-200">
+                Contraseña actualizada.
+              </p>
+
+              <p className="mt-2 text-sm leading-6 text-zinc-400">
+                Ya puedes iniciar sesión normalmente con tu nueva contraseña.
+              </p>
+
+              <Link
+                href="/cuenta"
+                className="mt-6 inline-block rounded-full bg-white px-6 py-3 font-bold text-black"
+              >
+                Volver a iniciar sesión
+              </Link>
+            </div>
+          ) : ready ? (
+            <form onSubmit={updatePassword}>
+              <label className="text-sm font-semibold">
+                Nueva contraseña
+              </label>
+
+              <input
+                type="password"
+                required
+                minLength={6}
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                className="mt-2 w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 outline-none focus:border-white/25"
+                placeholder="Mínimo 6 caracteres"
+              />
+
+              <label className="mt-5 block text-sm font-semibold">
+                Repite la contraseña
+              </label>
+
+              <input
+                type="password"
+                required
+                minLength={6}
+                value={confirmPassword}
+                onChange={(event) => setConfirmPassword(event.target.value)}
+                className="mt-2 w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 outline-none focus:border-white/25"
+                placeholder="Repite la contraseña"
+              />
+
+              <button
+                disabled={busy}
+                className="mt-6 rounded-full bg-white px-6 py-3 font-bold text-black disabled:opacity-50"
+              >
+                {busy ? "Actualizando..." : "Guardar nueva contraseña"}
+              </button>
+
+              {message && (
+                <div className="mt-5 rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-zinc-300">
+                  {message}
+                </div>
+              )}
+            </form>
+          ) : (
+            <div>
+              <p className="font-bold">
+                El enlace de recuperación no tiene una sesión válida.
+              </p>
+
+              <p className="mt-2 text-sm leading-6 text-zinc-400">
+                Solicita un enlace nuevo desde la pantalla de inicio de sesión.
+                Los enlaces de recuperación caducan y solo deben usarse una vez.
+              </p>
+
+              <Link
+                href="/cuenta"
+                className="mt-6 inline-block rounded-full border border-white/15 px-5 py-2.5 text-sm font-semibold"
+              >
+                Volver a Cuenta
+              </Link>
+            </div>
+          )}
+        </section>
+      </div>
+    </main>
+  );
+}
+
+
+============================================================
+ARCHIVO: .\app\perfil\page.tsx
+============================================================
+"use client";
+
+import Link from "next/link";
+import {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+import TopNav from "@/components/TopNav";
+import {
+  getAllUserBooks,
+  getCurrentUser,
+  type UserBookRow,
+} from "@/lib/userBooks";
+import {
+  getAllUserFeedback,
+  type UserFeedbackRow,
+} from "@/lib/userFeedback";
+import {
+  getMyFavorites,
+  getMyReaderProfile,
+  getPublicReaderProfile,
+  type EditableReaderProfile,
+  type PublicReaderProfile,
+  type ReaderFavoriteRow,
+} from "@/lib/readerProfiles";
+import {
+  getReaderCatalog,
+  type ReaderCatalogItem,
+} from "@/lib/readerCatalog";
+
+type Snapshot = {
+  accountId: string;
+  profile: EditableReaderProfile;
+  publicProfile: PublicReaderProfile;
+  rows: UserBookRow[];
+  feedback: UserFeedbackRow[];
+  favorites: ReaderFavoriteRow[];
+  catalog: ReaderCatalogItem[];
+};
+
+export default function PerfilPage() {
+  const [snapshot, setSnapshot] =
+    useState<Snapshot | null>(null);
+
+  const [loading, setLoading] =
+    useState(true);
+
+  const [error, setError] =
+    useState("");
+
+  useEffect(() => {
+    let active = true;
+
+    async function load() {
+      setLoading(true);
+      setError("");
+
+      try {
+        const user = await getCurrentUser();
+
+        if (!user) {
+          if (active) setSnapshot(null);
+          return;
+        }
+
+        const profile =
+          await getMyReaderProfile();
+
+        if (!profile) {
+          throw new Error(
+            "No se pudo cargar tu perfil."
+          );
+        }
+
+        const [
+          publicProfile,
+          rows,
+          feedback,
+          favorites,
+          catalog,
+        ] = await Promise.all([
+          getPublicReaderProfile(user.id),
+          getAllUserBooks(),
+          getAllUserFeedback(),
+          getMyFavorites(),
+          getReaderCatalog(),
+        ]);
+
+        if (!publicProfile) {
+          throw new Error(
+            "No se pudo calcular tu perfil."
+          );
+        }
+
+        if (active) {
+          setSnapshot({
+            accountId: user.id,
+            profile,
+            publicProfile,
+            rows: rows || [],
+            feedback: feedback || [],
+            favorites,
+            catalog,
+          });
+        }
+      } catch (err) {
+        if (active) {
+          setError(
+            err instanceof Error
+              ? err.message
+              : "No se pudo cargar el perfil."
+          );
+        }
+      } finally {
+        if (active) setLoading(false);
+      }
+    }
+
+    load();
+
+    window.addEventListener(
+      "seboro-profile-updated",
+      load
+    );
+
+    window.addEventListener(
+      "seboro-library-updated",
+      load
+    );
+
+    return () => {
+      active = false;
+
+      window.removeEventListener(
+        "seboro-profile-updated",
+        load
+      );
+
+      window.removeEventListener(
+        "seboro-library-updated",
+        load
+      );
+    };
+  }, []);
+
+  const itemMap = useMemo(
+    () =>
+      new Map(
+        (snapshot?.catalog || []).map(
+          (item) => [
+            item.slug,
+            item,
+          ]
+        )
+      ),
+    [snapshot?.catalog]
+  );
+
+  if (loading) {
+    return (
+      <main className="min-h-screen bg-[#0a0a0b] text-white">
+        <TopNav />
+        <div className="mx-auto max-w-7xl px-5 py-12 text-zinc-500">
+          Cargando perfil...
+        </div>
+      </main>
+    );
+  }
+
+  if (!snapshot) {
+    return (
+      <main className="min-h-screen bg-[#0a0a0b] text-white">
+        <TopNav />
+
+        <div className="mx-auto max-w-4xl px-5 py-16">
+          <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-8">
+            <h1 className="text-3xl font-black">
+              Tu perfil de lector
+            </h1>
+
+            <p className="mt-3 text-zinc-400">
+              Inicia sesión para sincronizar
+              niveles, favoritas, críticas y
+              privacidad.
+            </p>
+
+            <Link
+              href="/cuenta"
+              className="mt-6 inline-block rounded-full bg-white px-6 py-3 font-semibold text-black"
+            >
+              Ir a mi cuenta
+            </Link>
+          </div>
+
+          {error && (
+            <p className="mt-4 text-rose-300">
+              {error}
+            </p>
+          )}
+        </div>
+      </main>
+    );
+  }
+
+  const finished = snapshot.rows.filter(
+    (row) => row.finished
+  );
+
+  const history = [...snapshot.rows]
+    .filter(
+      (row) => Boolean(row.last_opened_at)
+    )
+    .sort(
+      (a, b) =>
+        new Date(
+          b.last_opened_at || 0
+        ).getTime() -
+        new Date(
+          a.last_opened_at || 0
+        ).getTime()
+    );
+
+  const recentReviews =
+    snapshot.feedback
+      .filter(
+        (item) =>
+          Boolean(item.review?.trim())
+      )
+      .slice(0, 4);
+
+  const favoriteItems =
+    snapshot.favorites
+      .map((row) =>
+        itemMap.get(row.book_slug)
+      )
+      .filter(Boolean) as ReaderCatalogItem[];
+
+  const favoriteGenre = (() => {
+    const counts = new Map<
+      string,
+      number
+    >();
+
+    for (const row of history) {
+      const item = itemMap.get(
+        row.book_slug
+      );
+
+      if (item) {
+        counts.set(
+          item.genre,
+          (counts.get(item.genre) ||
+            0) + 1
+        );
+      }
+    }
+
+    return (
+      [...counts.entries()].sort(
+        (a, b) => b[1] - a[1]
+      )[0]?.[0] ||
+      "Aún por descubrir"
+    );
+  })();
+
+  const p = snapshot.publicProfile;
+
+  return (
+    <main className="min-h-screen bg-[#0a0a0b] text-white">
+      <TopNav />
+
+      <div className="mx-auto max-w-7xl px-5 py-10 md:px-8">
+        <section className="overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-zinc-800 via-zinc-900 to-black p-8 md:p-10">
+          <div className="flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">
+                Perfil del lector
+              </p>
+
+              <h1 className="mt-2 text-4xl font-black md:text-5xl">
+                {p.display_name}
+              </h1>
+
+              <p className="mt-3 max-w-2xl leading-7 text-zinc-400">
+                {snapshot.profile.bio ||
+                  "Tu identidad como lector, tus niveles y tu actividad en SEBORO."}
+              </p>
+
+              <div className="mt-6 flex flex-wrap gap-3">
+                <Link
+                  href={`/usuarios/${snapshot.accountId}`}
+                  className="rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-black"
+                >
+                  Ver perfil público
+                </Link>
+
+                <Link
+                  href="/perfil/editar"
+                  className="rounded-full border border-white/15 px-5 py-2.5 text-sm font-semibold"
+                >
+                  Editar perfil y privacidad
+                </Link>
+              </div>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
+                <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
+                  Lector
+                </p>
+
+                <p className="mt-2 text-2xl font-bold">
+                  {p.reader_level}
+                </p>
+
+                <p className="mt-1 text-sm text-zinc-500">
+                  Nivel {p.reader_level_number}
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
+                <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
+                  Crítico
+                </p>
+
+                <p className="mt-2 text-2xl font-bold">
+                  {p.critic_level}
+                </p>
+
+                <p className="mt-1 text-sm text-zinc-500">
+                  Nivel {p.critic_level_number}
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
+          {[
+            ["Terminadas", p.finished_count],
+            ["Valoraciones", p.rating_count],
+            ["Críticas", p.review_count],
+            ["Reacciones", p.reaction_count],
+            ["Favoritas", p.favorite_count],
+            ["Comunidad", p.community_count],
+          ].map(([label, value]) => (
+            <div
+              key={String(label)}
+              className="rounded-2xl border border-white/10 bg-white/[0.03] p-5"
+            >
+              <p className="text-sm text-zinc-500">
+                {label}
+              </p>
+
+              <p className="mt-2 text-3xl font-black">
+                {value}
+              </p>
+            </div>
+          ))}
+        </section>
+
+        <section className="mt-8 grid gap-4 md:grid-cols-3">
+          <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
+            <p className="text-sm text-zinc-500">
+              Género más explorado
+            </p>
+
+            <p className="mt-2 text-xl font-bold">
+              {favoriteGenre}
+            </p>
+          </div>
+
+          <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
+            <p className="text-sm text-zinc-500">
+              Historial
+            </p>
+
+            <p className="mt-2 text-xl font-bold">
+              {history.length} obras
+            </p>
+          </div>
+
+          <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
+            <p className="text-sm text-zinc-500">
+              Perfil público
+            </p>
+
+            <p className="mt-2 text-xl font-bold">
+              {snapshot.profile.is_public
+                ? "Visible"
+                : "Privado"}
+            </p>
+          </div>
+        </section>
+
+        <section className="mt-10">
+          <div className="flex items-end justify-between gap-4">
+            <div>
+              <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">
+                Favoritas
+              </p>
+
+              <h2 className="mt-2 text-2xl font-bold">
+                Historias que marcaste
+              </h2>
+            </div>
+
+            <Link
+              href="/descubre"
+              className="text-sm text-zinc-400"
+            >
+              Descubrir más
+            </Link>
+          </div>
+
+          {favoriteItems.length === 0 ? (
+            <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.03] p-8 text-zinc-400">
+              En las publicaciones reales
+              puedes usar el botón ♡ Favorita.
+            </div>
+          ) : (
+            <div className="mt-5 flex gap-4 overflow-x-auto pb-4">
+              {favoriteItems.map(
+                (item) => (
+                  <Link
+                    key={item.slug}
+                    href={item.href}
+                    className="w-40 shrink-0"
+                  >
+                    <div
+                      className="aspect-[2/3] rounded-2xl border border-white/10"
+                      style={{
+                        background:
+                          item.cover,
+                      }}
+                    />
+
+                    <p className="mt-3 line-clamp-2 font-bold">
+                      {item.title}
+                    </p>
+
+                    <p className="mt-1 text-xs text-zinc-500">
+                      {item.genre}
+                    </p>
+                  </Link>
+                )
+              )}
+            </div>
+          )}
+        </section>
+
+        <section className="mt-10">
+          <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">
+            Críticas
+          </p>
+
+          <h2 className="mt-2 text-2xl font-bold">
+            Tus críticas recientes
+          </h2>
+
+          {recentReviews.length === 0 ? (
+            <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.03] p-8 text-zinc-400">
+              Cuando escribas una crítica,
+              aparecerá aquí.
+            </div>
+          ) : (
+            <div className="mt-5 grid gap-4 md:grid-cols-2">
+              {recentReviews.map(
+                (feedback) => {
+                  const item =
+                    itemMap.get(
+                      feedback.book_slug
+                    );
+
+                  return (
+                    <article
+                      key={
+                        feedback.book_slug
+                      }
+                      className="rounded-2xl border border-white/10 bg-white/[0.03] p-5"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="font-bold">
+                          {item?.title ||
+                            feedback.book_slug}
+                        </p>
+
+                        {feedback.rating && (
+                          <span className="text-sm font-semibold text-amber-300">
+                            ★{" "}
+                            {
+                              feedback.rating
+                            }
+                          </span>
+                        )}
+                      </div>
+
+                      <p className="mt-3 line-clamp-4 leading-6 text-zinc-400">
+                        {feedback.review}
+                      </p>
+
+                      {item && (
+                        <Link
+                          href={item.href}
+                          className="mt-4 inline-block text-sm font-semibold underline"
+                        >
+                          Ver obra
+                        </Link>
+                      )}
+                    </article>
+                  );
+                }
+              )}
+            </div>
+          )}
+        </section>
+
+        <section className="mt-10">
+          <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">
+            Terminadas
+          </p>
+
+          <h2 className="mt-2 text-2xl font-bold">
+            Últimas lecturas completadas
+          </h2>
+
+          <div className="mt-5 grid gap-4 md:grid-cols-2">
+            {finished
+              .slice(0, 6)
+              .map((row) => {
+                const item =
+                  itemMap.get(
+                    row.book_slug
+                  );
+
+                if (!item) return null;
+
+                return (
+                  <Link
+                    key={row.book_slug}
+                    href={item.href}
+                    className="flex gap-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4"
+                  >
+                    <div
+                      className="h-24 w-16 shrink-0 rounded-xl"
+                      style={{
+                        background:
+                          item.cover,
+                      }}
+                    />
+
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.15em] text-zinc-500">
+                        {item.genre}
+                      </p>
+
+                      <p className="mt-1 font-bold">
+                        {item.title}
+                      </p>
+
+                      <p className="mt-2 text-sm text-zinc-500">
+                        ✓ Terminada
+                      </p>
+                    </div>
+                  </Link>
+                );
+              })}
+          </div>
+        </section>
+      </div>
+    </main>
+  );
+}
+
+
+============================================================
+ARCHIVO: .\app\perfil\editar\page.tsx
+============================================================
+"use client";
+
+import Link from "next/link";
+import {
+  useEffect,
+  useState,
+} from "react";
+import TopNav from "@/components/TopNav";
+import {
+  getMyReaderProfile,
+  saveMyReaderProfile,
+} from "@/lib/readerProfiles";
+
+export default function EditReaderProfilePage() {
+  const [userId, setUserId] =
+    useState<string | null>(null);
+  const [publicName, setPublicName] =
+    useState("");
+  const [bio, setBio] =
+    useState("");
+  const [genres, setGenres] =
+    useState("");
+  const [isPublic, setIsPublic] =
+    useState(true);
+  const [showFavorites, setShowFavorites] =
+    useState(true);
+  const [showFinished, setShowFinished] =
+    useState(true);
+  const [showReviews, setShowReviews] =
+    useState(true);
+  const [showActivity, setShowActivity] =
+    useState(true);
+  const [showHistory, setShowHistory] =
+    useState(false);
+  const [loading, setLoading] =
+    useState(true);
+  const [saving, setSaving] =
+    useState(false);
+  const [message, setMessage] =
+    useState("");
+
+  useEffect(() => {
+    let active = true;
+
+    async function load() {
+      try {
+        const profile =
+          await getMyReaderProfile();
+
+        if (!active) return;
+
+        if (!profile) {
+          setMessage(
+            "Debes iniciar sesión."
+          );
+          return;
+        }
+
+        setUserId(profile.user_id);
+        setPublicName(profile.public_name);
+        setBio(profile.bio);
+        setGenres(
+          profile.favorite_genres.join(
+            ", "
+          )
+        );
+        setIsPublic(profile.is_public);
+        setShowFavorites(
+          profile.show_favorites
+        );
+        setShowFinished(
+          profile.show_finished
+        );
+        setShowReviews(
+          profile.show_reviews
+        );
+        setShowActivity(
+          profile.show_activity
+        );
+        setShowHistory(
+          profile.show_history
+        );
+      } catch (err) {
+        if (active) {
+          setMessage(
+            err instanceof Error
+              ? err.message
+              : "No se pudo cargar."
+          );
+        }
+      } finally {
+        if (active) setLoading(false);
+      }
+    }
+
+    load();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  async function save() {
+    setSaving(true);
+    setMessage("");
+
+    try {
+      await saveMyReaderProfile({
+        public_name: publicName,
+        bio,
+        favorite_genres: genres
+          .split(",")
+          .map((item) =>
+            item.trim()
+          ),
+        is_public: isPublic,
+        show_favorites: showFavorites,
+        show_finished: showFinished,
+        show_reviews: showReviews,
+        show_activity: showActivity,
+        show_history: showHistory,
+      });
+
+      setMessage(
+        "✓ Perfil y privacidad guardados."
+      );
+    } catch (err) {
+      setMessage(
+        err instanceof Error
+          ? err.message
+          : "No se pudo guardar."
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const privacyOptions = [
+    {
+      label: "Mostrar favoritas",
+      description:
+        "Permite que otros vean las obras que marcaste como favoritas.",
+      value: showFavorites,
+      set: setShowFavorites,
+    },
+    {
+      label: "Mostrar obras terminadas",
+      description:
+        "Comparte qué historias has terminado.",
+      value: showFinished,
+      set: setShowFinished,
+    },
+    {
+      label: "Mostrar críticas",
+      description:
+        "Tus críticas escritas aparecerán en tu perfil.",
+      value: showReviews,
+      set: setShowReviews,
+    },
+    {
+      label: "Mostrar actividad en comunidad",
+      description:
+        "Enlaza tus comentarios y respuestas públicas recientes.",
+      value: showActivity,
+      set: setShowActivity,
+    },
+    {
+      label: "Mostrar historial reciente",
+      description:
+        "Esta opción es privada por defecto. Actívala solo si quieres compartir las obras que has abierto recientemente.",
+      value: showHistory,
+      set: setShowHistory,
+    },
+  ];
+
+  return (
+    <main className="min-h-screen bg-[#0a0a0b] text-white">
+      <TopNav />
+
+      <div className="mx-auto max-w-4xl px-5 py-10 md:px-8">
+        <Link
+          href="/perfil"
+          className="text-sm font-semibold text-zinc-400"
+        >
+          ← Mi perfil
+        </Link>
+
+        <p className="mt-8 text-xs uppercase tracking-[0.2em] text-zinc-500">
+          Identidad y privacidad
+        </p>
+
+        <h1 className="mt-2 text-4xl font-black">
+          Perfil público de lector
+        </h1>
+
+        <p className="mt-3 max-w-2xl leading-7 text-zinc-400">
+          Tú decides qué partes de tu
+          actividad aparecen públicamente.
+          Tu correo, datos de pago y métricas
+          privadas nunca se muestran aquí.
+        </p>
+
+        {loading ? (
+          <div className="mt-8 text-zinc-500">
+            Cargando...
+          </div>
+        ) : (
+          <>
+            <section className="mt-8 rounded-3xl border border-white/10 bg-white/[0.03] p-6 md:p-8">
+              <div className="space-y-6">
+                <div>
+                  <label className="text-sm font-semibold">
+                    Nombre público
+                  </label>
+
+                  <input
+                    value={publicName}
+                    maxLength={60}
+                    onChange={(event) =>
+                      setPublicName(
+                        event.target.value
+                      )
+                    }
+                    className="mt-2 w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-sm font-semibold">
+                    Sobre mí
+                  </label>
+
+                  <textarea
+                    value={bio}
+                    maxLength={800}
+                    onChange={(event) =>
+                      setBio(
+                        event.target.value
+                      )
+                    }
+                    placeholder="Cuéntales a otros lectores qué historias buscas o qué te gusta leer."
+                    className="mt-2 min-h-36 w-full rounded-2xl border border-white/10 bg-black/20 p-4 outline-none placeholder:text-zinc-600"
+                  />
+
+                  <p className="mt-2 text-right text-xs text-zinc-600">
+                    {bio.length}/800
+                  </p>
+                </div>
+
+                <div>
+                  <label className="text-sm font-semibold">
+                    Géneros favoritos
+                  </label>
+
+                  <input
+                    value={genres}
+                    onChange={(event) =>
+                      setGenres(
+                        event.target.value
+                      )
+                    }
+                    placeholder="Misterio, Fantasía, Romance"
+                    className="mt-2 w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 outline-none placeholder:text-zinc-600"
+                  />
+
+                  <p className="mt-2 text-xs text-zinc-600">
+                    Separa los géneros con
+                    comas.
+                  </p>
+                </div>
+              </div>
+            </section>
+
+            <section className="mt-6 rounded-3xl border border-white/10 bg-white/[0.03] p-6 md:p-8">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h2 className="text-xl font-bold">
+                    Perfil público
+                  </h2>
+
+                  <p className="mt-2 text-sm leading-6 text-zinc-500">
+                    Si lo desactivas, otros
+                    usuarios no podrán ver tu
+                    perfil aunque conserves
+                    todos tus datos.
+                  </p>
+                </div>
+
+                <button
+                  onClick={() =>
+                    setIsPublic(
+                      (value) => !value
+                    )
+                  }
+                  className={`rounded-full px-4 py-2 text-sm font-semibold ${
+                    isPublic
+                      ? "bg-emerald-200 text-emerald-950"
+                      : "border border-white/15 text-zinc-300"
+                  }`}
+                >
+                  {isPublic
+                    ? "Público"
+                    : "Privado"}
+                </button>
+              </div>
+
+              <div className="mt-6 space-y-3">
+                {privacyOptions.map(
+                  (option) => (
+                    <div
+                      key={option.label}
+                      className="flex items-start justify-between gap-5 rounded-2xl border border-white/10 bg-black/20 p-4"
+                    >
+                      <div>
+                        <p className="font-semibold">
+                          {option.label}
+                        </p>
+
+                        <p className="mt-1 max-w-xl text-sm leading-6 text-zinc-500">
+                          {
+                            option.description
+                          }
+                        </p>
+                      </div>
+
+                      <button
+                        onClick={() =>
+                          option.set(
+                            !option.value
+                          )
+                        }
+                        disabled={!isPublic}
+                        className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold disabled:opacity-30 ${
+                          option.value
+                            ? "bg-white text-black"
+                            : "border border-white/15 text-zinc-400"
+                        }`}
+                      >
+                        {option.value
+                          ? "Visible"
+                          : "Oculto"}
+                      </button>
+                    </div>
+                  )
+                )}
+              </div>
+            </section>
+
+            <div className="mt-6 flex flex-wrap items-center gap-3">
+              <button
+                onClick={save}
+                disabled={saving}
+                className="rounded-full bg-white px-6 py-3 font-semibold text-black disabled:opacity-50"
+              >
+                {saving
+                  ? "Guardando..."
+                  : "Guardar cambios"}
+              </button>
+
+              {userId && (
+                <Link
+                  href={`/usuarios/${userId}`}
+                  className="rounded-full border border-white/15 px-6 py-3 font-semibold"
+                >
+                  Ver perfil público
+                </Link>
+              )}
+            </div>
+
+            {message && (
+              <p className="mt-5 text-sm text-zinc-300">
+                {message}
+              </p>
+            )}
+          </>
+        )}
+      </div>
+    </main>
+  );
+}
+
+
+============================================================
+ARCHIVO: .\app\solicitar-autor\page.tsx
+============================================================
+"use client";
+
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
+import TopNav from "@/components/TopNav";
+import {
+  getAccessProfile,
+  type AccessProfile,
+} from "@/lib/access";
+import {
+  getMyAuthorApplications,
+  submitAuthorApplication,
+  type AuthorApplication,
+} from "@/lib/authorApplications";
+
+export default function SolicitarAutorPage() {
+  const [profile, setProfile] = useState<AccessProfile | null>(null);
+  const [applications, setApplications] = useState<AuthorApplication[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+
+  const [penName, setPenName] = useState("");
+  const [motivation, setMotivation] = useState("");
+  const [experience, setExperience] = useState("");
+
+  async function load() {
+    setLoading(true);
+    setError("");
+
+    try {
+      const current = await getAccessProfile();
+      setProfile(current);
+
+      if (current) {
+        setPenName((value) => value || current.display_name);
+        setApplications(await getMyAuthorApplications());
+      } else {
+        setApplications([]);
+      }
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "No se pudo cargar la solicitud."
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  const pending = useMemo(
+    () => applications.find((item) => item.status === "pending") || null,
+    [applications]
+  );
+
+  const latest = applications[0] || null;
+
+  async function submit() {
+    setBusy(true);
+    setError("");
+    setMessage("");
+
+    try {
+      await submitAuthorApplication({
+        pen_name: penName,
+        motivation,
+        experience,
+      });
+
+      setMessage("Solicitud enviada correctamente.");
+      await load();
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "No se pudo enviar la solicitud."
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <main className="min-h-screen bg-[#0a0a0b] text-white">
+      <TopNav />
+
+      <div className="mx-auto max-w-4xl px-5 py-10 md:px-8">
+        <Link href="/" className="text-sm font-semibold text-zinc-400">
+          ← Volver
+        </Link>
+
+        <p className="mt-8 text-xs uppercase tracking-[0.2em] text-zinc-500">
+          SEBORO · autores
+        </p>
+        <h1 className="mt-2 text-4xl font-black md:text-5xl">
+          Publica como autor
+        </h1>
+        <p className="mt-4 max-w-2xl leading-7 text-zinc-400">
+          Antes de abrir las herramientas de publicación, SEBORO revisará una
+          solicitud breve para mantener una comunidad de autores identificados.
+        </p>
+
+        {error && (
+          <div className="mt-6 rounded-2xl border border-rose-400/20 bg-rose-400/10 p-4 text-rose-200">
+            {error}
+          </div>
+        )}
+
+        {message && (
+          <div className="mt-6 rounded-2xl border border-emerald-400/20 bg-emerald-400/10 p-4 text-emerald-200">
+            ✓ {message}
+          </div>
+        )}
+
+        {loading ? (
+          <div className="mt-8 text-zinc-500">Cargando...</div>
+        ) : !profile ? (
+          <div className="mt-8 rounded-3xl border border-white/10 bg-white/[0.03] p-8">
+            <h2 className="text-2xl font-bold">Primero inicia sesión</h2>
+            <p className="mt-3 text-zinc-400">
+              Necesitas una cuenta de lector para solicitar el modo autor.
+            </p>
+          </div>
+        ) : profile.role === "author" || profile.role === "admin" ? (
+          <div className="mt-8 rounded-3xl border border-emerald-400/20 bg-emerald-400/10 p-8">
+            <h2 className="text-2xl font-bold text-emerald-100">
+              Tu cuenta ya puede publicar
+            </h2>
+            <p className="mt-3 text-emerald-100/70">
+              No necesitas enviar una solicitud nueva.
+            </p>
+            <Link
+              href="/autor"
+              className="mt-6 inline-block rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-black"
+            >
+              Ir al Centro del creador
+            </Link>
+          </div>
+        ) : pending ? (
+          <div className="mt-8 rounded-3xl border border-sky-300/20 bg-sky-300/10 p-8">
+            <p className="text-xs uppercase tracking-[0.2em] text-sky-200/60">
+              Solicitud enviada
+            </p>
+            <h2 className="mt-2 text-2xl font-bold text-sky-100">
+              Pendiente de revisión
+            </h2>
+            <p className="mt-3 text-sky-100/70">
+              El administrador todavía no ha tomado una decisión.
+            </p>
+            <div className="mt-5 rounded-2xl border border-sky-100/10 bg-black/10 p-4">
+              <p className="text-sm text-sky-100/60">Nombre de autor</p>
+              <p className="mt-1 font-semibold text-sky-100">
+                {pending.pen_name}
+              </p>
+            </div>
+          </div>
+        ) : (
+          <>
+            {latest?.status === "rejected" && (
+              <div className="mt-8 rounded-3xl border border-amber-300/20 bg-amber-300/10 p-6">
+                <h2 className="text-xl font-bold text-amber-100">
+                  Tu solicitud anterior necesitó cambios
+                </h2>
+                {latest.admin_notes && (
+                  <p className="mt-3 text-sm leading-6 text-amber-100/75">
+                    Nota del administrador: {latest.admin_notes}
+                  </p>
+                )}
+                <p className="mt-3 text-sm text-amber-100/60">
+                  Puedes enviar una nueva solicitud.
+                </p>
+              </div>
+            )}
+
+            <section className="mt-8 rounded-3xl border border-white/10 bg-white/[0.03] p-6 md:p-8">
+              <div className="grid gap-6">
+                <div>
+                  <label className="text-sm font-semibold">
+                    Nombre con el que publicarás
+                  </label>
+                  <input
+                    value={penName}
+                    onChange={(event) => setPenName(event.target.value)}
+                    placeholder="Nombre o seudónimo"
+                    className="mt-2 w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-sm font-semibold">
+                    ¿Por qué quieres publicar en SEBORO?
+                  </label>
+                  <textarea
+                    value={motivation}
+                    onChange={(event) => setMotivation(event.target.value)}
+                    placeholder="Cuéntanos qué tipo de historias quieres compartir..."
+                    className="mt-2 min-h-40 w-full rounded-2xl border border-white/10 bg-black/20 p-4 outline-none"
+                  />
+                  <p className="mt-2 text-xs text-zinc-600">
+                    Mínimo 30 caracteres.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="text-sm font-semibold">
+                    Experiencia escribiendo (opcional)
+                  </label>
+                  <textarea
+                    value={experience}
+                    onChange={(event) => setExperience(event.target.value)}
+                    placeholder="Puedes contar si ya has escrito novelas, relatos, fanfiction, blogs, etc."
+                    className="mt-2 min-h-32 w-full rounded-2xl border border-white/10 bg-black/20 p-4 outline-none"
+                  />
+                </div>
+
+                <button
+                  onClick={submit}
+                  disabled={
+                    busy ||
+                    penName.trim().length < 2 ||
+                    motivation.trim().length < 30
+                  }
+                  className="w-fit rounded-full bg-white px-6 py-3 font-semibold text-black disabled:opacity-40"
+                >
+                  {busy ? "Enviando..." : "Enviar solicitud"}
+                </button>
+              </div>
+            </section>
+          </>
+        )}
+      </div>
+    </main>
+  );
+}
+

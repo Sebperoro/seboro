@@ -1,4 +1,3 @@
-import { books } from "@/data/books";
 import { getPublishedWorks, getWorkCoverBackground } from "@/lib/publishedWorks";
 
 export type ReaderCatalogItem = {
@@ -10,31 +9,16 @@ export type ReaderCatalogItem = {
   cover: string;
   href: string;
   community_href: string;
-  source: "prototype" | "published";
+  source: "published";
 };
 
 export async function getReaderCatalog(): Promise<
   ReaderCatalogItem[]
 > {
-  const staticItems: ReaderCatalogItem[] =
-    books.map((book) => ({
-      slug: book.slug,
-      title: book.title,
-      author: book.author,
-      author_id: null,
-      genre: book.genre,
-      cover: book.cover,
-      href: `/obra/${book.slug}`,
-      community_href: `/comunidad/${book.slug}`,
-      source: "prototype",
-    }));
-
-  let published: ReaderCatalogItem[] = [];
-
   try {
-    const works = await getPublishedWorks();
+    const works = await getPublishedWorks({ includeTest: true });
 
-    published = works.map((work) => ({
+    return works.map((work) => ({
       slug: work.slug,
       title: work.title,
       author: work.author_name,
@@ -46,18 +30,6 @@ export async function getReaderCatalog(): Promise<
       source: "published",
     }));
   } catch {
-    published = [];
+    return [];
   }
-
-  const map = new Map<string, ReaderCatalogItem>();
-
-  for (const item of staticItems) {
-    map.set(item.slug, item);
-  }
-
-  for (const item of published) {
-    map.set(item.slug, item);
-  }
-
-  return [...map.values()];
 }

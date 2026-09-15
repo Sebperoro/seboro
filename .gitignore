@@ -36,6 +36,15 @@ yarn-error.log*
 # vercel
 .vercel
 
+# claude code local dev config
+.claude/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local scratch / backups / ad-hoc archives (not part of the project)
+.claude-scratch/
+.seboro-backups/
+*.bak-*
+*.zip

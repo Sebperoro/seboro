@@ -4,96 +4,85 @@ import {
   useEffect,
   useState,
 } from "react";
+
 import {
   getUserFeedback,
   upsertUserFeedback,
 } from "@/lib/userFeedback";
-
-const reactions = [
-  { id: "love", emoji: "❤️", label: "Me encantó" },
-  { id: "moved", emoji: "😢", label: "Me emocionó" },
-  { id: "surprised", emoji: "😮", label: "Me sorprendió" },
-  { id: "funny", emoji: "😂", label: "Me hizo reír" },
-  { id: "annoyed", emoji: "😡", label: "Me molestó" },
-];
 
 export default function ReaderFeedbackExtras({
   slug,
 }: {
   slug: string;
 }) {
-  const [selected, setSelected] =
-    useState<string[]>([]);
   const [review, setReview] =
     useState("");
   const [saving, setSaving] =
     useState(false);
   const [message, setMessage] =
     useState("");
+  const [error, setError] =
+    useState("");
 
   useEffect(() => {
     let active = true;
 
     async function load() {
-      const feedback =
-        await getUserFeedback(slug);
+      try {
+        const feedback =
+          await getUserFeedback(slug);
 
-      if (!active || !feedback) return;
+        if (!active || !feedback) {
+          return;
+        }
 
-      setSelected(
-        feedback.reactions || []
-      );
-      setReview(
-        feedback.review || ""
-      );
+        setReview(
+          feedback.review || ""
+        );
+      } catch (loadError) {
+        console.error(
+          "SEBORO feedback extras load:",
+          loadError
+        );
+      }
     }
 
-    load();
+    void load();
 
     return () => {
       active = false;
     };
   }, [slug]);
 
-  function toggle(id: string) {
-    setSelected((current) =>
-      current.includes(id)
-        ? current.filter(
-            (item) => item !== id
-          )
-        : [...current, id]
-    );
-  }
-
   async function save() {
     setSaving(true);
     setMessage("");
+    setError("");
 
     try {
-      const ok =
-        await upsertUserFeedback(
-          slug,
-          {
-            reactions: selected,
-            review: review.trim()
+      /*
+       * La crítica es independiente del rating.
+       * Tampoco usamos emociones como evaluación
+       * de la obra: las reacciones pertenecen a
+       * comentarios/conversaciones de comunidad.
+       */
+      await upsertUserFeedback(
+        slug,
+        {
+          review:
+            review.trim()
               ? review.trim()
               : null,
-          }
-        );
-
-      if (!ok) {
-        throw new Error(
-          "No se pudo guardar la opinión."
-        );
-      }
-
-      setMessage(
-        "✓ Reacciones y crítica guardadas."
+        }
       );
-    } catch (err) {
+
       setMessage(
-        err instanceof Error
-          ? err.message
+        "✓ Crítica guardada."
+      );
+    } catch (saveError) {
+      setError(
+        saveError instanceof Error
+          ? saveError.message
           : "No se pudo guardar."
       );
     } finally {
@@ -102,65 +91,48 @@ export default function ReaderFeedbackExtras({
   }
 
   return (
-    <div className="mt-8 border-t border-white/10 pt-7">
-      <h3 className="text-lg font-bold">
-        2. ¿Qué te hizo sentir?
+    <div className="mt-6 border-t border-[#e3dcd5] pt-5">
+      <h3 className="text-lg font-black text-[#342f2b]">
+        Crítica opcional
       </h3>
 
-      <div className="mt-4 flex flex-wrap gap-2">
-        {reactions.map((reaction) => {
-          const active =
-            selected.includes(
-              reaction.id
-            );
-
-          return (
-            <button
-              key={reaction.id}
-              onClick={() =>
-                toggle(reaction.id)
-              }
-              className={`rounded-full border px-4 py-2 text-sm font-semibold transition ${
-                active
-                  ? "border-white bg-white text-black"
-                  : "border-white/10 bg-black/20 text-zinc-300 hover:border-white/25"
-              }`}
-            >
-              {reaction.emoji}{" "}
-              {reaction.label}
-            </button>
-          );
-        })}
-      </div>
-
-      <h3 className="mt-8 text-lg font-bold">
-        3. Crítica opcional
-      </h3>
+      <p className="mt-1.5 text-sm leading-6 text-[#81776f]">
+        Cuenta qué funcionó para ti, qué no, o qué debería saber otro lector antes de decidir.
+      </p>
 
       <textarea
         value={review}
         maxLength={3000}
         onChange={(event) =>
-          setReview(event.target.value)
+          setReview(
+            event.target.value
+          )
         }
         placeholder="¿Qué destacarías de la obra?"
-        className="mt-4 min-h-32 w-full rounded-2xl border border-white/10 bg-black/20 p-4 text-white outline-none placeholder:text-zinc-600 focus:border-white/25"
+        className="mt-3 min-h-28 w-full rounded-[16px] border border-[#d8d0c7] bg-[#fbfaf8] p-3.5 text-[#34312d] outline-none transition placeholder:text-[#aaa39b] focus:border-[#aaa096] focus:bg-white md:min-h-32 md:rounded-[18px] md:p-4"
       />
 
-      <div className="mt-4 flex flex-wrap items-center gap-3">
+      <div className="mt-3 flex flex-wrap items-center gap-3">
         <button
+          type="button"
           onClick={save}
           disabled={saving}
-          className="rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-black disabled:opacity-50"
+          className="rounded-full bg-[#2f2d29] px-5 py-2.5 text-sm font-black text-white transition hover:bg-[#1f1e1b] disabled:opacity-50"
         >
           {saving
             ? "Guardando..."
-            : "Guardar opinión"}
+            : "Guardar crítica"}
         </button>
 
         {message && (
-          <p className="text-sm text-zinc-400">
+          <p className="text-sm font-semibold text-[#4f7951]">
             {message}
+          </p>
+        )}
+
+        {error && (
+          <p className="text-sm font-semibold text-[#a84f58]">
+            ✕ {error}
           </p>
         )}
       </div>

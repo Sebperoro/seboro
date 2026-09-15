@@ -2,9 +2,11 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+
 import PublishedWorkCard, {
   type RatedPublishedWork,
 } from "@/components/PublishedWorkCard";
+
 import { getPublishedWorks } from "@/lib/publishedWorks";
 import { getPublicWorkRatings } from "@/lib/workRatings";
 
@@ -48,11 +50,17 @@ export default function TopRatedPublishedRow() {
               (a.ranking_score ?? -1)
           );
 
-        if (active) setWorks(ranked);
+        if (active) {
+          setWorks(ranked);
+        }
       } catch {
-        if (active) setWorks([]);
+        if (active) {
+          setWorks([]);
+        }
       } finally {
-        if (active) setLoading(false);
+        if (active) {
+          setLoading(false);
+        }
       }
     }
 
@@ -63,48 +71,53 @@ export default function TopRatedPublishedRow() {
     };
   }, []);
 
-  if (!loading && works.length === 0) return null;
+  if (!loading && works.length === 0) {
+    return null;
+  }
 
   return (
-    <section className="mt-11">
-      <div className="mb-4 flex items-end justify-between gap-4">
-        <div>
-          <div className="flex flex-wrap items-center gap-2">
-            <h2 className="text-xl font-bold text-white">
-              Mejor valoradas por lectores
-            </h2>
+    <section className="mt-7 overflow-hidden rounded-[22px] border border-[#ebcdb8] bg-white px-4 pt-3 pb-0 md:px-5">
+      <div className="mb-3 flex items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <h2 className="text-lg font-black tracking-[-0.02em] text-[#211f1c] md:text-xl">
+            Mejor valoradas
+          </h2>
 
-            <span className="rounded-full border border-amber-300/20 bg-amber-300/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-amber-200">
-              Datos reales
-            </span>
-          </div>
-
-          <p className="mt-1 text-sm text-zinc-500">
-            El orden considera promedio y cantidad de valoraciones para evitar
-            que una muestra mínima domine el ranking.
-          </p>
+          <span className="rounded-full border border-[#e8d1a5] bg-[#fff8e9] px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.14em] text-[#a06a18]">
+            Favoritas
+          </span>
         </div>
 
         <Link
           href="/descubre"
-          className="shrink-0 text-sm text-zinc-400 hover:text-white"
+          className="shrink-0 text-sm font-semibold text-[#c45b1b] transition hover:text-[#9f4512]"
         >
-          Ver catálogo
+          Ver más
         </Link>
       </div>
 
       {loading ? (
-        <div className="flex gap-5 overflow-hidden pb-4">
-          {[0, 1, 2].map((item) => (
-            <div key={item} className="w-[190px] shrink-0">
-              <div className="aspect-[2/3] animate-pulse rounded-2xl bg-white/[0.05]" />
+        <div className="flex gap-4 overflow-hidden pb-2">
+          {[0, 1, 2, 3, 4].map((item) => (
+            <div
+              key={item}
+              className="w-[165px] shrink-0"
+            >
+              <div className="aspect-[2/3] animate-pulse rounded-2xl border border-[#e4ddd6] bg-[#f1ece7]" />
+
+              <div className="mt-2 h-4 animate-pulse rounded bg-[#e9e3dd]" />
             </div>
           ))}
         </div>
       ) : (
-        <div className="flex gap-5 overflow-x-auto pb-4">
+        <div className="flex gap-4 overflow-x-auto">
           {works.map((work) => (
-            <PublishedWorkCard key={work.id} work={work} />
+            <div
+              key={work.id}
+              className="origin-top-left -mr-4 -mb-9 scale-[0.9]"
+            >
+              <PublishedWorkCard work={work} />
+            </div>
           ))}
         </div>
       )}

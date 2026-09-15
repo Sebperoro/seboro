@@ -269,3 +269,61 @@ export async function getRecentChapterVersions(): Promise<
     data || []
   ) as RecentChapterVersion[];
 }
+export async function correctPublishedChapter(
+  chapterId: string,
+  titleValue: string,
+  contentValue: string
+) {
+  const title = titleValue.trim();
+  const content = contentValue.trim();
+
+  if (!title) {
+    throw new Error(
+      "El capítulo necesita título."
+    );
+  }
+
+  if (!content) {
+    throw new Error(
+      "El capítulo no puede estar vacío."
+    );
+  }
+
+  const supabase =
+    getSupabaseBrowserClient();
+
+  if (!supabase) {
+    throw new Error(
+      "Supabase no está configurado."
+    );
+  }
+
+  const { data, error } =
+    await supabase.rpc(
+      "correct_published_chapter",
+      {
+        p_chapter_id: chapterId,
+        p_title: title,
+        p_content: content,
+      }
+    );
+
+  if (error) {
+    throw new Error(
+      error.message
+    );
+  }
+
+  const row =
+    Array.isArray(data)
+      ? data[0]
+      : data;
+
+  if (!row) {
+    throw new Error(
+      "No se recibió el capítulo corregido."
+    );
+  }
+
+  return row;
+}

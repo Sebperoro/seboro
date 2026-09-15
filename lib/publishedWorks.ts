@@ -4,6 +4,14 @@ import { getCurrentUser } from "@/lib/userBooks";
 export type WorkStatus = "ongoing" | "finished";
 export type SerialState = "active" | "paused" | "abandoned" | "finished";
 export type ChapterStatus = "draft" | "published";
+export type ContentFormat = "native" | "epub" | "pdf";
+export type ReadingMode = "reflowable" | "fixed";
+export type ProcessingStatus =
+  | "none"
+  | "pending"
+  | "processing"
+  | "ready"
+  | "error";
 
 export type PublicationStatus =
   | "draft"
@@ -22,6 +30,7 @@ export type AgeRating =
 
 export type PublishedWork = {
   id: string;
+  is_test: boolean;
   slug: string;
   author_id: string;
   title: string;
@@ -35,9 +44,23 @@ export type PublishedWork = {
   work_status: WorkStatus;
   publication_status: PublicationStatus;
   price_mxn: number;
+  sample_enabled: boolean;
+  sample_chapters: number;
+  sample_pages: number;
+  sample_level_bonus_enabled: boolean;
   cover_style: string;
   cover_url: string | null;
   cover_path: string | null;
+  content_format: ContentFormat;
+  reading_mode: ReadingMode;
+  source_file_path: string | null;
+  source_file_name: string | null;
+  source_file_size: number | null;
+  source_uploaded_at: string | null;
+  processing_status: ProcessingStatus;
+  processing_error: string | null;
+  page_count: number | null;
+  manuscript_chapter_count: number | null;
   serial_state: SerialState;
   release_frequency_days: number;
   next_release_at: string | null;
@@ -141,6 +164,7 @@ function normalizeWork(
 ): PublishedWork {
   return {
     id: String(row.id),
+    is_test: Boolean(row.is_test),
     slug: String(row.slug),
     author_id: String(row.author_id),
     title: String(row.title),
@@ -167,6 +191,10 @@ function normalizeWork(
     price_mxn: Number(
       row.price_mxn || 0
     ),
+    sample_enabled: row.sample_enabled === undefined ? true : Boolean(row.sample_enabled),
+    sample_chapters: Math.max(0, Number(row.sample_chapters ?? 1)),
+    sample_pages: Math.max(0, Number(row.sample_pages ?? 10)),
+    sample_level_bonus_enabled: Boolean(row.sample_level_bonus_enabled),
     cover_style: String(
       row.cover_style ||
         "linear-gradient(135deg,#27272a,#09090b)"
@@ -177,6 +205,42 @@ function normalizeWork(
     cover_path: row.cover_path
       ? String(row.cover_path)
       : null,
+    content_format: String(
+      row.content_format || "native"
+    ) as ContentFormat,
+    reading_mode: String(
+      row.reading_mode || "reflowable"
+    ) as ReadingMode,
+    source_file_path: row.source_file_path
+      ? String(row.source_file_path)
+      : null,
+    source_file_name: row.source_file_name
+      ? String(row.source_file_name)
+      : null,
+    source_file_size:
+      row.source_file_size === null ||
+      row.source_file_size === undefined
+        ? null
+        : Number(row.source_file_size),
+    source_uploaded_at: row.source_uploaded_at
+      ? String(row.source_uploaded_at)
+      : null,
+    processing_status: String(
+      row.processing_status || "none"
+    ) as ProcessingStatus,
+    processing_error: row.processing_error
+      ? String(row.processing_error)
+      : null,
+    page_count:
+      row.page_count === null ||
+      row.page_count === undefined
+        ? null
+        : Number(row.page_count),
+    manuscript_chapter_count:
+      row.manuscript_chapter_count === null ||
+      row.manuscript_chapter_count === undefined
+        ? null
+        : Math.max(0, Number(row.manuscript_chapter_count)),
     serial_state: String(
       row.serial_state ||
         (row.work_status === "finished" ? "finished" : "active")
@@ -538,9 +602,23 @@ type WorkPatch = Partial<
     | "age_rating"
     | "work_status"
     | "price_mxn"
+    | "sample_enabled"
+    | "sample_chapters"
+    | "sample_pages"
+    | "sample_level_bonus_enabled"
     | "cover_style"
     | "cover_url"
     | "cover_path"
+    | "content_format"
+    | "reading_mode"
+    | "source_file_path"
+    | "source_file_name"
+    | "source_file_size"
+    | "source_uploaded_at"
+    | "processing_status"
+    | "processing_error"
+    | "page_count"
+    | "manuscript_chapter_count"
     | "serial_state"
     | "release_frequency_days"
     | "next_release_at"
@@ -606,6 +684,21 @@ export async function updateMyWork(
     );
   }
 
+  if (typeof patch.sample_chapters === "number") {
+    cleaned.sample_chapters = Math.max(0, Math.min(50, Math.round(patch.sample_chapters)));
+  }
+
+  if (typeof patch.sample_pages === "number") {
+    cleaned.sample_pages = Math.max(0, Math.min(200, Math.round(patch.sample_pages)));
+  }
+
+  if (typeof patch.manuscript_chapter_count === "number") {
+    cleaned.manuscript_chapter_count = Math.max(
+      0,
+      Math.min(10000, Math.round(patch.manuscript_chapter_count))
+    );
+  }
+
   const { data, error } =
     await supabase
       .from("works")
@@ -632,6 +725,59 @@ export async function updateMyWork(
   );
 }
 
+export const COVER_ALLOWED_TYPES: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+};
+
+export const COVER_MAX_BYTES = 5 * 1024 * 1024;
+
+export function validateCoverFile(file: File): string | null {
+  if (!COVER_ALLOWED_TYPES[file.type]) {
+    return "La portada debe ser JPG, PNG o WEBP.";
+  }
+
+  if (file.size > COVER_MAX_BYTES) {
+    return "La portada no puede superar 5 MB.";
+  }
+
+  return null;
+}
+
+// Proporción recomendada 2:3 (ancho/alto ≈ 0.667). Fuera de este rango no
+// se bloquea la subida, solo se advierte: la portada igual se muestra
+// recortada al centro (background center/cover) en toda la app.
+export const COVER_RATIO_MIN = 0.5;
+export const COVER_RATIO_MAX = 0.85;
+
+export function getCoverRatioWarning(ratio: number): string | null {
+  if (ratio < COVER_RATIO_MIN || ratio > COVER_RATIO_MAX) {
+    return "Esta imagen no es muy vertical (2:3): se mostrará recortada al centro en las portadas. Puedes subirla igual o elegir una más vertical.";
+  }
+
+  return null;
+}
+
+export function getImageAspectRatio(file: File): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve(img.naturalWidth / img.naturalHeight);
+    };
+
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("No se pudo leer la imagen."));
+    };
+
+    img.src = url;
+  });
+}
+
 export async function uploadMyWorkCover(
   workId: string,
   file: File
@@ -646,26 +792,14 @@ export async function uploadMyWorkCover(
     );
   }
 
-  const allowed = new Map([
-    ["image/jpeg", "jpg"],
-    ["image/png", "png"],
-    ["image/webp", "webp"],
-  ]);
+  const validationError = validateCoverFile(file);
+
+  if (validationError) {
+    throw new Error(validationError);
+  }
 
   const extension =
-    allowed.get(file.type);
-
-  if (!extension) {
-    throw new Error(
-      "La portada debe ser JPG, PNG o WEBP."
-    );
-  }
-
-  if (file.size > 5 * 1024 * 1024) {
-    throw new Error(
-      "La portada no puede superar 5 MB."
-    );
-  }
+    COVER_ALLOWED_TYPES[file.type];
 
   const {
     data: work,
@@ -822,6 +956,886 @@ export async function removeMyWorkCover(
   }
 
   return updated;
+}
+
+const MANUSCRIPT_BUCKET = "book-manuscripts";
+const MAX_MANUSCRIPT_BYTES = 50 * 1024 * 1024;
+
+function getManuscriptFileInfo(file: File): {
+  contentFormat: Exclude<ContentFormat, "native">;
+  readingMode: ReadingMode;
+  extension: "pdf" | "epub";
+  contentType: string;
+} {
+  const fileName = file.name.trim();
+  const extension = fileName.split(".").pop()?.toLowerCase();
+
+  if (extension === "pdf") {
+    if (
+      file.type &&
+      file.type !== "application/pdf" &&
+      file.type !== "application/octet-stream"
+    ) {
+      throw new Error("El archivo seleccionado no parece ser un PDF válido.");
+    }
+
+    return {
+      contentFormat: "pdf",
+      readingMode: "fixed",
+      extension: "pdf",
+      contentType: "application/pdf",
+    };
+  }
+
+  if (extension === "epub") {
+    if (
+      file.type &&
+      file.type !== "application/epub+zip" &&
+      file.type !== "application/octet-stream" &&
+      file.type !== "application/zip"
+    ) {
+      throw new Error("El archivo seleccionado no parece ser un EPUB válido.");
+    }
+
+    return {
+      contentFormat: "epub",
+      readingMode: "reflowable",
+      extension: "epub",
+      contentType: "application/epub+zip",
+    };
+  }
+
+  throw new Error("El manuscrito debe ser un archivo PDF o EPUB.");
+}
+
+async function countPdfPages(
+  source: ArrayBuffer | Uint8Array
+) {
+  const { PDFDocument } = await import("pdf-lib");
+
+  try {
+    const bytes =
+      source instanceof Uint8Array
+        ? source
+        : new Uint8Array(source);
+
+    const document = await PDFDocument.load(bytes, {
+      ignoreEncryption: false,
+      updateMetadata: false,
+    });
+
+    const pageCount = document.getPageCount();
+
+    if (!Number.isFinite(pageCount) || pageCount < 1) {
+      throw new Error("El PDF no contiene páginas válidas.");
+    }
+
+    return pageCount;
+  } catch (error) {
+    throw new Error(
+      error instanceof Error
+        ? `No se pudo leer el PDF: ${error.message}`
+        : "No se pudo leer el PDF."
+    );
+  }
+}
+
+export async function processMyWorkPdf(
+  workId: string
+) {
+  const supabase = client();
+  const user = await getCurrentUser();
+
+  if (!user) {
+    throw new Error("Debes iniciar sesión.");
+  }
+
+  const { data: work, error } = await supabase
+    .from("works")
+    .select(
+      "id, author_id, content_format, source_file_path, publication_status"
+    )
+    .eq("id", workId)
+    .eq("author_id", user.id)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  if (!work) {
+    throw new Error("Esta obra no pertenece a tu cuenta.");
+  }
+
+  if (work.content_format !== "pdf") {
+    throw new Error("Esta obra no utiliza un manuscrito PDF.");
+  }
+
+  if (!work.source_file_path) {
+    throw new Error("La obra todavía no tiene un archivo PDF.");
+  }
+
+  if (
+    work.publication_status === "in_review" ||
+    work.publication_status === "human_review"
+  ) {
+    throw new Error(
+      "No puedes reprocesar el PDF mientras la obra está en revisión."
+    );
+  }
+
+  await updateMyWork(workId, {
+    processing_status: "processing",
+    processing_error: null,
+    page_count: null,
+  });
+
+  try {
+    const { data: fileData, error: downloadError } =
+      await supabase.storage
+        .from(MANUSCRIPT_BUCKET)
+        .download(String(work.source_file_path));
+
+    if (downloadError) {
+      throw new Error(downloadError.message);
+    }
+
+    const pageCount = await countPdfPages(
+      await fileData.arrayBuffer()
+    );
+
+    return await updateMyWork(workId, {
+      reading_mode: "fixed",
+      processing_status: "ready",
+      processing_error: null,
+      page_count: pageCount,
+    });
+  } catch (error) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : "No se pudo procesar el PDF.";
+
+    await updateMyWork(workId, {
+      processing_status: "error",
+      processing_error: message.slice(0, 1000),
+      page_count: null,
+    });
+
+    throw new Error(message);
+  }
+}
+
+function decodeHtmlEntities(value: string) {
+  return value
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/&#(\d+);/g, (_, code) =>
+      String.fromCharCode(Number(code))
+    )
+    .replace(/&#x([0-9a-f]+);/gi, (_, code) =>
+      String.fromCharCode(parseInt(code, 16))
+    );
+}
+
+function stripHtml(value: string) {
+  return decodeHtmlEntities(
+    value
+      .replace(/<script[\s\S]*?<\/script>/gi, " ")
+      .replace(/<style[\s\S]*?<\/style>/gi, " ")
+      .replace(/<br\s*\/?>/gi, "\n")
+      .replace(/<\/p>/gi, "\n\n")
+      .replace(/<\/div>/gi, "\n")
+      .replace(/<\/h[1-6]>/gi, "\n\n")
+      .replace(/<[^>]+>/g, " ")
+  )
+    .replace(/\r/g, "")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n[ \t]+/g, "\n")
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+function extractHtmlTitle(value: string, fallback: string) {
+  const headingMatch =
+    value.match(/<h[1-3][^>]*>([\s\S]*?)<\/h[1-3]>/i);
+
+  if (headingMatch?.[1]) {
+    const heading = stripHtml(headingMatch[1]).trim();
+
+    if (heading) {
+      return heading.slice(0, 180);
+    }
+  }
+
+  const titleMatch =
+    value.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+
+  if (titleMatch?.[1]) {
+    const title = stripHtml(titleMatch[1]).trim();
+
+    if (title) {
+      return title.slice(0, 180);
+    }
+  }
+
+  return fallback.slice(0, 180);
+}
+
+function resolveEpubPath(baseFile: string, relative: string) {
+  const cleanRelative = relative.split("#")[0].split("?")[0];
+
+  if (!cleanRelative) return "";
+
+  const baseParts = baseFile.split("/");
+  baseParts.pop();
+
+  const relativeParts = cleanRelative.split("/");
+
+  for (const part of relativeParts) {
+    if (!part || part === ".") continue;
+
+    if (part === "..") {
+      baseParts.pop();
+      continue;
+    }
+
+    baseParts.push(part);
+  }
+
+  return baseParts.join("/");
+}
+
+function getXmlAttribute(
+  tag: string,
+  attribute: string
+) {
+  const match = tag.match(
+    new RegExp(
+      `${attribute}\\s*=\\s*["']([^"']+)["']`,
+      "i"
+    )
+  );
+
+  return match?.[1] || "";
+}
+
+async function parseEpubChapters(
+  source: ArrayBuffer | Uint8Array
+) {
+  const JSZipModule = await import("jszip");
+  const JSZip = JSZipModule.default;
+  const zip = await JSZip.loadAsync(source);
+
+  const containerFile =
+    zip.file("META-INF/container.xml");
+
+  if (!containerFile) {
+    throw new Error(
+      "El EPUB no contiene META-INF/container.xml."
+    );
+  }
+
+  const containerXml =
+    await containerFile.async("text");
+
+  const rootfileMatch =
+    containerXml.match(
+      /<rootfile[^>]*full-path=["']([^"']+)["'][^>]*>/i
+    );
+
+  const packagePath =
+    rootfileMatch?.[1];
+
+  if (!packagePath) {
+    throw new Error(
+      "No se pudo localizar el archivo OPF del EPUB."
+    );
+  }
+
+  const packageFile =
+    zip.file(packagePath);
+
+  if (!packageFile) {
+    throw new Error(
+      "El archivo OPF declarado por el EPUB no existe."
+    );
+  }
+
+  const packageXml =
+    await packageFile.async("text");
+
+  const manifest = new Map<string, string>();
+
+  const itemTags =
+    packageXml.match(/<item\b[^>]*>/gi) || [];
+
+  for (const tag of itemTags) {
+    const id =
+      getXmlAttribute(tag, "id");
+
+    const href =
+      getXmlAttribute(tag, "href");
+
+    if (id && href) {
+      manifest.set(
+        id,
+        resolveEpubPath(
+          packagePath,
+          decodeURIComponent(href)
+        )
+      );
+    }
+  }
+
+  const spineMatch =
+    packageXml.match(
+      /<spine\b[^>]*>([\s\S]*?)<\/spine>/i
+    );
+
+  if (!spineMatch?.[1]) {
+    throw new Error(
+      "El EPUB no contiene un orden de lectura válido."
+    );
+  }
+
+  const itemRefs =
+    spineMatch[1].match(
+      /<itemref\b[^>]*>/gi
+    ) || [];
+
+  const orderedFiles: string[] = [];
+
+  for (const tag of itemRefs) {
+    const idref =
+      getXmlAttribute(tag, "idref");
+
+    const href =
+      manifest.get(idref);
+
+    if (href) {
+      orderedFiles.push(href);
+    }
+  }
+
+  if (orderedFiles.length === 0) {
+    throw new Error(
+      "El EPUB no contiene capítulos legibles en su spine."
+    );
+  }
+
+  const chapters: Array<{
+    title: string;
+    content: string;
+  }> = [];
+
+  for (let index = 0; index < orderedFiles.length; index++) {
+    const filePath =
+      orderedFiles[index];
+
+    const chapterFile =
+      zip.file(filePath);
+
+    if (!chapterFile) {
+      continue;
+    }
+
+    const html =
+      await chapterFile.async("text");
+
+    const content =
+      stripHtml(html);
+
+    if (content.length < 80) {
+      continue;
+    }
+
+    const fallbackTitle =
+      `Capítulo ${chapters.length + 1}`;
+
+    chapters.push({
+      title:
+        extractHtmlTitle(
+          html,
+          fallbackTitle
+        ) || fallbackTitle,
+      content,
+    });
+  }
+
+  if (chapters.length === 0) {
+    throw new Error(
+      "No se pudieron extraer capítulos con contenido suficiente del EPUB."
+    );
+  }
+
+  return chapters;
+}
+
+export async function processMyWorkEpub(
+  workId: string
+) {
+  const supabase = client();
+  const user = await getCurrentUser();
+
+  if (!user) {
+    throw new Error("Debes iniciar sesión.");
+  }
+
+  const { data: work, error } = await supabase
+    .from("works")
+    .select(
+      "id, author_id, content_format, source_file_path, publication_status"
+    )
+    .eq("id", workId)
+    .eq("author_id", user.id)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  if (!work) {
+    throw new Error(
+      "Esta obra no pertenece a tu cuenta."
+    );
+  }
+
+  if (work.content_format !== "epub") {
+    throw new Error(
+      "Esta obra no utiliza un manuscrito EPUB."
+    );
+  }
+
+  if (!work.source_file_path) {
+    throw new Error(
+      "La obra todavía no tiene un archivo EPUB."
+    );
+  }
+
+  if (
+    work.publication_status === "in_review" ||
+    work.publication_status === "human_review"
+  ) {
+    throw new Error(
+      "No puedes reprocesar el EPUB mientras la obra está en revisión."
+    );
+  }
+
+  await updateMyWork(workId, {
+    processing_status: "processing",
+    processing_error: null,
+    page_count: null,
+  });
+
+  try {
+    const { data: fileData, error: downloadError } =
+      await supabase.storage
+        .from(MANUSCRIPT_BUCKET)
+        .download(
+          String(work.source_file_path)
+        );
+
+    if (downloadError) {
+      throw new Error(
+        downloadError.message
+      );
+    }
+
+    const chapters =
+      await parseEpubChapters(
+        await fileData.arrayBuffer()
+      );
+
+    const { error: deleteError } =
+      await supabase
+        .from("work_chapters")
+        .delete()
+        .eq("work_id", workId);
+
+    if (deleteError) {
+      throw new Error(
+        deleteError.message
+      );
+    }
+
+    const rows = chapters.map(
+      (chapter, index) => ({
+        work_id: workId,
+        chapter_number: index + 1,
+        title: chapter.title,
+        content: chapter.content,
+        chapter_status: "published",
+        published_at: new Date().toISOString(),
+        current_version: 1,
+        last_correction_at: null,
+      })
+    );
+
+    const { error: insertError } =
+      await supabase
+        .from("work_chapters")
+        .insert(rows);
+
+    if (insertError) {
+      throw new Error(
+        insertError.message
+      );
+    }
+
+    return await updateMyWork(
+      workId,
+      {
+        reading_mode: "reflowable",
+        processing_status: "ready",
+        processing_error: null,
+        page_count: null,
+      }
+    );
+  } catch (error) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : "No se pudo procesar el EPUB.";
+
+    await updateMyWork(
+      workId,
+      {
+        processing_status: "error",
+        processing_error:
+          message.slice(0, 1000),
+        page_count: null,
+      }
+    );
+
+    throw new Error(message);
+  }
+}
+
+export async function uploadMyWorkManuscript(
+  workId: string,
+  file: File
+) {
+  const supabase = client();
+  const user = await getCurrentUser();
+
+  if (!user) {
+    throw new Error("Debes iniciar sesión.");
+  }
+
+  if (!file || file.size <= 0) {
+    throw new Error("El archivo está vacío.");
+  }
+
+  if (file.size > MAX_MANUSCRIPT_BYTES) {
+    throw new Error("El manuscrito no puede superar 50 MB.");
+  }
+
+  const fileInfo = getManuscriptFileInfo(file);
+
+  let pdfPageCount: number | null = null;
+
+  if (fileInfo.contentFormat === "pdf") {
+    pdfPageCount = await countPdfPages(
+      await file.arrayBuffer()
+    );
+  }
+
+  const { data: work, error: workError } = await supabase
+    .from("works")
+    .select(
+      "id, author_id, publication_status, source_file_path"
+    )
+    .eq("id", workId)
+    .eq("author_id", user.id)
+    .maybeSingle();
+
+  if (workError) {
+    throw new Error(workError.message);
+  }
+
+  if (!work) {
+    throw new Error("Esta obra no pertenece a tu cuenta.");
+  }
+
+  if (
+    work.publication_status === "in_review" ||
+    work.publication_status === "human_review"
+  ) {
+    throw new Error(
+      "No puedes reemplazar el manuscrito mientras la obra está en revisión."
+    );
+  }
+
+  if (work.publication_status === "published") {
+    throw new Error(
+      "La sustitución de manuscritos de obras publicadas se gestionará mediante versiones."
+    );
+  }
+
+  const path = `${user.id}/${workId}/${Date.now()}.${fileInfo.extension}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from(MANUSCRIPT_BUCKET)
+    .upload(path, file, {
+      cacheControl: "3600",
+      contentType: fileInfo.contentType,
+      upsert: false,
+    });
+
+  if (uploadError) {
+    throw new Error(uploadError.message);
+  }
+
+  const oldPath = work.source_file_path
+    ? String(work.source_file_path)
+    : null;
+
+  try {
+    const updated = await updateMyWork(workId, {
+      content_format: fileInfo.contentFormat,
+      reading_mode: fileInfo.readingMode,
+      source_file_path: path,
+      source_file_name: file.name.slice(0, 255),
+      source_file_size: file.size,
+      source_uploaded_at: new Date().toISOString(),
+      processing_status:
+        fileInfo.contentFormat === "pdf"
+          ? "ready"
+          : "pending",
+      processing_error: null,
+      page_count:
+        fileInfo.contentFormat === "pdf"
+          ? pdfPageCount
+          : null,
+    });
+
+    if (oldPath && oldPath !== path) {
+      await supabase.storage
+        .from(MANUSCRIPT_BUCKET)
+        .remove([oldPath]);
+    }
+
+    if (
+      fileInfo.contentFormat === "epub"
+    ) {
+      return await processMyWorkEpub(
+        workId
+      );
+    }
+
+    return updated;
+  } catch (err) {
+    await supabase.storage
+      .from(MANUSCRIPT_BUCKET)
+      .remove([path]);
+
+    throw err;
+  }
+}
+
+export async function removeMyWorkManuscript(
+  workId: string
+) {
+  const supabase = client();
+  const user = await getCurrentUser();
+
+  if (!user) {
+    throw new Error("Debes iniciar sesión.");
+  }
+
+  const { data: work, error } = await supabase
+    .from("works")
+    .select(
+      "source_file_path, publication_status"
+    )
+    .eq("id", workId)
+    .eq("author_id", user.id)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  if (!work) {
+    throw new Error("Obra no encontrada.");
+  }
+
+  if (
+    work.publication_status === "in_review" ||
+    work.publication_status === "human_review"
+  ) {
+    throw new Error(
+      "No puedes eliminar el manuscrito mientras la obra está en revisión."
+    );
+  }
+
+  if (work.publication_status === "published") {
+    throw new Error(
+      "El manuscrito de una obra publicada no puede eliminarse directamente."
+    );
+  }
+
+  const oldPath = work.source_file_path
+    ? String(work.source_file_path)
+    : null;
+
+  const updated = await updateMyWork(workId, {
+    content_format: "native",
+    reading_mode: "reflowable",
+    source_file_path: null,
+    source_file_name: null,
+    source_file_size: null,
+    source_uploaded_at: null,
+    processing_status: "none",
+    processing_error: null,
+    page_count: null,
+  });
+
+  if (oldPath) {
+    const { error: removeError } = await supabase.storage
+      .from(MANUSCRIPT_BUCKET)
+      .remove([oldPath]);
+
+    if (removeError) {
+      throw new Error(
+        `La ficha se actualizó, pero no se pudo borrar el archivo anterior: ${removeError.message}`
+      );
+    }
+  }
+
+  return updated;
+}
+
+export async function getPublishedWorkManuscriptUrl(
+  slug: string,
+  expiresIn = 3600
+) {
+  const supabase = client();
+
+  const { data: work, error } = await supabase
+    .from("works")
+    .select(
+      "source_file_path, content_format, publication_status"
+    )
+    .eq("slug", slug)
+    .eq("publication_status", "published")
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  if (
+    !work?.source_file_path ||
+    work.content_format !== "pdf"
+  ) {
+    return null;
+  }
+
+  const safeExpiresIn = Math.max(
+    60,
+    Math.min(86400, Math.round(expiresIn))
+  );
+
+  const {
+    data,
+    error: signedError,
+  } = await supabase.storage
+    .from(MANUSCRIPT_BUCKET)
+    .createSignedUrl(
+      String(work.source_file_path),
+      safeExpiresIn
+    );
+
+  if (signedError) {
+    throw new Error(signedError.message);
+  }
+
+  return data.signedUrl;
+}
+
+export async function getMyWorkManuscriptUrl(
+  workId: string,
+  expiresIn = 3600
+) {
+  const supabase = client();
+  const user = await getCurrentUser();
+
+  if (!user) {
+    throw new Error("Debes iniciar sesión.");
+  }
+
+  const { data: work, error } = await supabase
+    .from("works")
+    .select("source_file_path")
+    .eq("id", workId)
+    .eq("author_id", user.id)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  if (!work?.source_file_path) {
+    return null;
+  }
+
+  const safeExpiresIn = Math.max(
+    60,
+    Math.min(86400, Math.round(expiresIn))
+  );
+
+  const { data, error: signedError } = await supabase.storage
+    .from(MANUSCRIPT_BUCKET)
+    .createSignedUrl(
+      String(work.source_file_path),
+      safeExpiresIn
+    );
+
+  if (signedError) {
+    throw new Error(signedError.message);
+  }
+
+  return data.signedUrl;
+}
+
+export async function setMyWorkProcessingState(
+  workId: string,
+  patch: {
+    processing_status: ProcessingStatus;
+    processing_error?: string | null;
+    page_count?: number | null;
+  }
+) {
+  const workPatch: WorkPatch = {
+    processing_status: patch.processing_status,
+  };
+
+  if (patch.processing_error !== undefined) {
+    workPatch.processing_error =
+      patch.processing_error;
+  }
+
+  if (patch.page_count !== undefined) {
+    workPatch.page_count =
+      patch.page_count === null
+        ? null
+        : Math.max(
+            1,
+            Math.round(patch.page_count)
+          );
+  }
+
+  return updateMyWork(
+    workId,
+    workPatch
+  );
 }
 
 export async function addChapter(
@@ -1049,7 +2063,11 @@ export async function publishMyWork(
   );
 }
 
-export async function getPublishedWorks(): Promise<
+export async function getPublishedWorks(
+  options: {
+    includeTest?: boolean;
+  } = {}
+): Promise<
   Array<
     PublishedWork & {
       author_name: string;
@@ -1058,18 +2076,23 @@ export async function getPublishedWorks(): Promise<
 > {
   const supabase = client();
 
+  let query = supabase
+    .from("works")
+    .select("*")
+    .eq(
+      "publication_status",
+      "published"
+    );
+
+  if (!options.includeTest) {
+    query = query.eq("is_test", false);
+  }
+
   const { data, error } =
-    await supabase
-      .from("works")
-      .select("*")
-      .eq(
-        "publication_status",
-        "published"
-      )
-      .order(
-        "published_at",
-        { ascending: false }
-      );
+    await query.order(
+      "published_at",
+      { ascending: false }
+    );
 
   if (error) {
     throw new Error(

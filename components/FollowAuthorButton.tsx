@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+
 import {
   isFollowingAuthor,
   toggleAuthorFollow,
@@ -30,22 +31,31 @@ export default function FollowAuthorButton({
 
         if (!active) return;
 
-        setLoggedIn(Boolean(user));
-        setOwnProfile(user?.id === authorId);
+        const isLoggedIn = Boolean(user);
+        const isOwnProfile = user?.id === authorId;
 
-        if (user && user.id !== authorId) {
-          setFollowing(
-            await isFollowingAuthor(authorId)
-          );
+        setLoggedIn(isLoggedIn);
+        setOwnProfile(isOwnProfile);
+
+        if (user && !isOwnProfile) {
+          const result = await isFollowingAuthor(authorId);
+
+          if (active) {
+            setFollowing(result);
+          }
+        } else if (active) {
+          setFollowing(false);
         }
       } catch {
         if (active) {
+          setLoggedIn(false);
+          setOwnProfile(false);
           setFollowing(false);
         }
       }
     }
 
-    load();
+    void load();
 
     return () => {
       active = false;
@@ -56,7 +66,7 @@ export default function FollowAuthorButton({
     return (
       <Link
         href="/autor/perfil"
-        className="rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-black"
+        className="inline-flex items-center justify-center rounded-full border border-[#d8c8bc] bg-white px-5 py-2.5 text-sm font-black text-[#6d625b] shadow-[0_5px_14px_rgba(62,45,34,0.06)] transition hover:border-[#bfa895] hover:bg-[#fff8f2] hover:text-[#9a4b1c]"
       >
         Editar mi perfil
       </Link>
@@ -67,7 +77,7 @@ export default function FollowAuthorButton({
     return (
       <Link
         href="/cuenta"
-        className="rounded-full border border-white/15 px-5 py-2.5 text-sm font-semibold"
+        className="inline-flex items-center justify-center rounded-full border border-[#d8c8bc] bg-white px-5 py-2.5 text-sm font-black text-[#6d625b] shadow-[0_5px_14px_rgba(62,45,34,0.06)] transition hover:border-[#bfa895] hover:bg-[#fff8f2] hover:text-[#9a4b1c]"
       >
         Inicia sesión para seguir
       </Link>
@@ -75,13 +85,13 @@ export default function FollowAuthorButton({
   }
 
   async function toggle() {
+    if (busy) return;
+
     setBusy(true);
     setError("");
 
     try {
-      const next =
-        await toggleAuthorFollow(authorId);
-
+      const next = await toggleAuthorFollow(authorId);
       setFollowing(next);
 
       if (onChanged) {
@@ -99,30 +109,32 @@ export default function FollowAuthorButton({
   }
 
   return (
-    <div>
+    <div className="flex flex-col items-start gap-2">
       <button
+        type="button"
         onClick={toggle}
         disabled={busy}
+        aria-pressed={following}
         title={
           following
-            ? "Recibirás avisos de nuevas obras y capítulos de este autor."
-            : "Sigue al autor para recibir avisos de nuevas publicaciones."
+            ? "Ya sigues a este autor. Pulsa para dejar de seguirlo."
+            : "Sigue al autor para recibir novedades de sus publicaciones."
         }
-        className={`rounded-full px-5 py-2.5 text-sm font-semibold disabled:opacity-50 ${
+        className={`inline-flex min-w-[150px] cursor-pointer items-center justify-center rounded-full border px-5 py-2.5 text-sm font-black shadow-[0_5px_14px_rgba(62,45,34,0.08)] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d96a24] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${
           following
-            ? "border border-white/15 text-white"
-            : "bg-white text-black"
+            ? "border-[#9fc9ad] bg-[#eef8f1] text-[#397053] hover:border-[#80b892] hover:bg-[#e3f3e8]"
+            : "border-[#d96a24] bg-[#d96a24] text-white hover:border-[#be571c] hover:bg-[#be571c]"
         }`}
       >
         {busy
           ? "Guardando..."
           : following
-          ? "Siguiendo"
-          : "Seguir autor"}
+          ? "✓ Siguiendo"
+          : "+ Seguir autor"}
       </button>
 
       {error && (
-        <p className="mt-2 max-w-xs text-xs text-rose-300">
+        <p className="max-w-xs text-xs font-semibold text-rose-600">
           {error}
         </p>
       )}

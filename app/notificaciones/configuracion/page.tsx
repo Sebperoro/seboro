@@ -130,98 +130,121 @@ export default function NotificationSettingsPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#0a0a0b] text-white">
+    <main className="min-h-screen bg-[#f7f5f1] text-[#2b2521]">
       <TopNav />
 
-      <div className="mx-auto max-w-3xl px-5 py-10 md:px-8">
+      <div className="mx-auto max-w-3xl px-5 pb-20 pt-8 md:px-8 md:pt-10">
         <Link
           href="/notificaciones"
-          className="text-sm font-semibold text-zinc-500 hover:text-white"
+          className="inline-flex items-center gap-2 text-sm font-black text-[#7d736c] transition hover:text-[#b95016]"
         >
           ← Notificaciones
         </Link>
 
-        <p className="mt-8 text-xs uppercase tracking-[0.2em] text-zinc-500">
-          Control
-        </p>
+        <div className="mt-7 border-b border-[#ddd5cf] pb-6">
+          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#8b817a]">
+            Control
+          </p>
 
-        <h1 className="mt-2 text-4xl font-black">
-          Configurar avisos
-        </h1>
+          <h1 className="mt-2 text-4xl font-black tracking-[-0.04em]">
+            Configurar avisos
+          </h1>
 
-        <p className="mt-3 leading-7 text-zinc-400">
-          Seguir una obra o autor no cambia
-          su posición en SEBORO. Solo
-          controla qué actividad quieres
-          recibir.
-        </p>
+          <p className="mt-3 max-w-2xl text-sm leading-7 text-[#7c726b] md:text-base">
+            Elige qué actividad quieres recibir. Seguir una obra o un autor no cambia su posición en SEBORO.
+          </p>
+        </div>
 
-        <div className="mt-5 rounded-2xl border border-amber-300/15 bg-amber-300/[0.05] p-4 text-sm leading-6 text-amber-100/80">
-          Los avisos de moderación, seguridad
-          o restricciones de cuenta son
-          obligatorios y no pueden
-          desactivarse desde estas
-          preferencias.
+        <div className="mt-5 rounded-[18px] border border-[#ead5aa] bg-[#fffaf0] p-4">
+          <p className="text-[10px] font-black uppercase tracking-[0.15em] text-[#8a682d]">
+            Avisos obligatorios
+          </p>
+
+          <p className="mt-2 text-sm leading-6 text-[#806f52]">
+            Moderación, seguridad y restricciones de cuenta no pueden desactivarse desde estas preferencias.
+          </p>
         </div>
 
         {loggedIn === false ? (
-          <div className="mt-8 rounded-3xl border border-white/10 p-7">
-            <p className="font-bold">
-              Inicia sesión para cambiar tus
-              preferencias.
+          <div className="mt-7 rounded-[22px] border border-[#ddd5cf] bg-white p-7">
+            <p className="font-black">
+              Inicia sesión para cambiar tus preferencias.
             </p>
+
+            <Link
+              href="/cuenta"
+              className="mt-5 inline-flex rounded-full bg-[#d96822] px-5 py-2.5 text-sm font-black text-white transition hover:bg-[#bd5718]"
+            >
+              Ir a mi cuenta
+            </Link>
           </div>
         ) : !preferences ? (
-          <p className="mt-8 text-zinc-500">
+          <div className="mt-7 rounded-[20px] border border-[#ddd5cf] bg-white p-6 text-[#8f8580]">
             Cargando...
-          </p>
+          </div>
         ) : (
-          <div className="mt-8 overflow-hidden rounded-3xl border border-white/10">
+          <div className="mt-7 overflow-hidden rounded-[22px] border border-[#ddd5cf] bg-white">
             {ROWS.map(
               (row, index) => (
                 <label
                   key={row.key}
-                  className={`flex cursor-pointer items-start justify-between gap-5 p-5 ${
+                  className={`flex cursor-pointer items-start justify-between gap-5 px-5 py-5 transition hover:bg-[#faf8f6] ${
                     index > 0
-                      ? "border-t border-white/10"
+                      ? "border-t border-[#eee8e2]"
                       : ""
                   }`}
                 >
-                  <div>
-                    <p className="font-bold">
+                  <div className="pr-4">
+                    <p className="font-black text-[#2b2521]">
                       {row.title}
                     </p>
 
-                    <p className="mt-1 max-w-xl text-sm leading-6 text-zinc-500">
-                      {
-                        row.description
-                      }
+                    <p className="mt-1 max-w-xl text-sm leading-6 text-[#81766f]">
+                      {row.description}
                     </p>
                   </div>
 
-                  <input
-                    type="checkbox"
-                    checked={
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={
                       preferences[
                         row.key
                       ]
                     }
-                    onChange={(event) =>
+                    aria-label={row.title}
+                    onClick={() =>
                       setPreferences(
                         (current) =>
                           current
                             ? {
                                 ...current,
                                 [row.key]:
-                                  event
-                                    .target
-                                    .checked,
+                                  !current[
+                                    row.key
+                                  ],
                               }
                             : current
                       )
                     }
-                    className="mt-1 h-5 w-5 accent-white"
-                  />
+                    className={`relative mt-0.5 h-7 w-12 shrink-0 rounded-full border transition-all duration-200 ${
+                      preferences[
+                        row.key
+                      ]
+                        ? "border-[#d96822] bg-[#d96822] shadow-[0_4px_12px_rgba(217,104,34,0.18)]"
+                        : "border-[#d8d0ca] bg-[#eee9e4]"
+                    }`}
+                  >
+                    <span
+                      className={`absolute top-[3px] h-5 w-5 rounded-full bg-white shadow-[0_2px_6px_rgba(47,41,37,0.18)] transition-all duration-200 ${
+                        preferences[
+                          row.key
+                        ]
+                          ? "left-[23px]"
+                          : "left-[3px]"
+                      }`}
+                    />
+                  </button>
                 </label>
               )
             )}
@@ -229,27 +252,30 @@ export default function NotificationSettingsPage() {
         )}
 
         {error && (
-          <p className="mt-5 text-sm text-rose-300">
+          <div className="mt-5 rounded-[18px] border border-[#e5c3c3] bg-white p-4 text-sm text-[#b24949]">
             {error}
-          </p>
+          </div>
         )}
 
         {message && (
-          <p className="mt-5 text-sm text-emerald-200">
+          <div className="mt-5 rounded-[18px] border border-[#cbdcc9] bg-[#f6faf5] p-4 text-sm font-semibold text-[#4f7951]">
             ✓ {message}
-          </p>
+          </div>
         )}
 
         {preferences && (
-          <button
-            onClick={save}
-            disabled={saving}
-            className="mt-6 rounded-full bg-white px-6 py-3 font-semibold text-black disabled:opacity-50"
-          >
-            {saving
-              ? "Guardando..."
-              : "Guardar preferencias"}
-          </button>
+          <div className="mt-6 flex justify-end">
+            <button
+              type="button"
+              onClick={save}
+              disabled={saving}
+              className="rounded-full bg-[#2f2925] px-6 py-3 font-black text-white transition hover:bg-[#1f1b18] disabled:opacity-50"
+            >
+              {saving
+                ? "Guardando..."
+                : "Guardar preferencias"}
+            </button>
+          </div>
         )}
       </div>
     </main>

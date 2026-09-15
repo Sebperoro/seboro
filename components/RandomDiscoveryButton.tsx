@@ -1,59 +1,83 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
-import { books } from "@/data/books";
+import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+
 import { getPublishedWorks } from "@/lib/publishedWorks";
 
 export default function RandomDiscoveryButton() {
   const router = useRouter();
-  const [realRoutes, setRealRoutes] = useState<string[]>([]);
+  const searchParams = useSearchParams();
+
+  const [routes, setRoutes] = useState<string[]>([]);
+
+  const previewMode =
+    searchParams.get("preview") === "1";
 
   useEffect(() => {
     let active = true;
 
     async function load() {
       try {
-        const works = await getPublishedWorks();
+        const works = await getPublishedWorks({
+          includeTest: previewMode,
+        });
 
         if (active) {
-          setRealRoutes(
+          setRoutes(
             works.map(
-              (work) => `/publicaciones/${work.slug}`
+              (work) =>
+                `/publicaciones/${work.slug}`
             )
           );
         }
       } catch {
-        if (active) setRealRoutes([]);
+        if (active) {
+          setRoutes([]);
+        }
       }
     }
 
-    load();
+    void load();
 
     return () => {
       active = false;
     };
-  }, []);
-
-  const routes = useMemo(
-    () => [
-      ...books.map((book) => `/obra/${book.slug}`),
-      ...realRoutes,
-    ],
-    [realRoutes]
-  );
+  }, [previewMode]);
 
   function discover() {
-    if (routes.length === 0) return;
+    if (routes.length === 0) {
+      return;
+    }
 
-    const index = Math.floor(Math.random() * routes.length);
+    const index = Math.floor(
+      Math.random() * routes.length
+    );
+
     router.push(routes[index]);
   }
 
   return (
     <button
+      type="button"
       onClick={discover}
-      className="rounded-full border border-white/15 px-6 py-3 font-semibold text-white transition hover:border-white/30 hover:bg-white/[0.04]"
+      disabled={routes.length === 0}
+      className="
+        rounded-full
+        border border-[#c9a97f]
+        bg-transparent
+        px-5 py-3
+        text-[15px]
+        font-semibold
+        text-[#5c4d3b]
+        transition
+        hover:border-[#b98f69]
+        hover:bg-white/60
+        hover:text-[#46392a]
+        active:scale-[0.98]
+        disabled:cursor-not-allowed
+        disabled:opacity-50
+      "
     >
       Sorpréndeme
     </button>

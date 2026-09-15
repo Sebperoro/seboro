@@ -8,6 +8,8 @@ export type ReaderPrivacy = {
   show_reviews: boolean;
   show_activity: boolean;
   show_history: boolean;
+  show_ratings: boolean;
+  show_reactions: boolean;
 };
 
 export type EditableReaderProfile = ReaderPrivacy & {
@@ -96,6 +98,16 @@ function normalizePublic(
     show_reviews: Boolean(raw.show_reviews),
     show_activity: Boolean(raw.show_activity),
     show_history: Boolean(raw.show_history),
+    // show_ratings/show_reactions todavía no existen en la RPC pública
+    // (get_public_reader_profile) ni en la tabla reader_profiles. Mientras
+    // el backend no las exponga, raw.show_ratings/raw.show_reactions llegan
+    // undefined — en ese caso se muestran por defecto (igual que las 5
+    // banderas existentes se comportan hoy), para no ocultarle a nadie un
+    // dato que antes no tenía forma de ocultar. En cuanto el backend
+    // devuelva un valor explícito, este mismo código respeta la
+    // preferencia real (true/false) de cada usuario.
+    show_ratings: raw.show_ratings !== false,
+    show_reactions: raw.show_reactions !== false,
     finished_count: Number(raw.finished_count || 0),
     rating_count: Number(raw.rating_count || 0),
     review_count: Number(raw.review_count || 0),
@@ -186,6 +198,10 @@ export async function getMyReaderProfile(): Promise<
       show_reviews: Boolean(created.show_reviews),
       show_activity: Boolean(created.show_activity),
       show_history: Boolean(created.show_history),
+      // Ver nota en normalizePublic(): sin columna todavía en el backend,
+      // se muestran por defecto en vez de ocultarse.
+      show_ratings: created.show_ratings !== false,
+      show_reactions: created.show_reactions !== false,
     };
   }
 
@@ -204,6 +220,10 @@ export async function getMyReaderProfile(): Promise<
     show_reviews: Boolean(reader.show_reviews),
     show_activity: Boolean(reader.show_activity),
     show_history: Boolean(reader.show_history),
+    // Ver nota en normalizePublic(): sin columna todavía en el backend,
+    // se muestran por defecto en vez de ocultarse.
+    show_ratings: reader.show_ratings !== false,
+    show_reactions: reader.show_reactions !== false,
   };
 }
 

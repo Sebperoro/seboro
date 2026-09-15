@@ -1,100 +1,88 @@
 "use client";
 
-import Link from "next/link";
-import { useEffect, useState } from "react";
-import { getCurrentUser, getUserBook, patchUserBook } from "@/lib/userBooks";
-
-const PURCHASED_KEY = "seboro-purchased";
-
-function readLocal(): string[] {
-  try {
-    return JSON.parse(localStorage.getItem(PURCHASED_KEY) || "[]");
-  } catch {
-    return [];
-  }
-}
+import { useState } from "react";
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
 export default function PurchaseButton({
   slug,
-  price,
+  priceMxn,
+  loggedIn,
 }: {
   slug: string;
-  price: number;
+  priceMxn: number;
+  loggedIn: boolean;
 }) {
-  const [purchased, setPurchased] = useState(false);
-  const [loggedIn, setLoggedIn] = useState<boolean | null>(null);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
 
-  useEffect(() => {
-    let active = true;
-
-    async function load() {
-      const user = await getCurrentUser();
-      if (!active) return;
-
-      setLoggedIn(Boolean(user));
-
-      if (user) {
-        const row = await getUserBook(slug);
-        if (active) setPurchased(Boolean(row?.purchased));
-      } else {
-        setPurchased(readLocal().includes(slug));
-      }
-    }
-
-    load();
-    return () => {
-      active = false;
-    };
-  }, [slug]);
-
-  async function purchase() {
-    if (purchased || busy) return;
-
-    const accepted = window.confirm(
-      `Esta es una compra simulada del prototipo de SEBORO por $${price} MXN. No se realizará ningún cobro real. ¿Continuar?`
-    );
-    if (!accepted) return;
+  async function buy() {
+    setError("");
 
     if (!loggedIn) {
-      const current = readLocal();
-      const next = current.includes(slug) ? current : [...current, slug];
-      localStorage.setItem(PURCHASED_KEY, JSON.stringify(next));
-      setPurchased(true);
-      window.dispatchEvent(new Event("seboro-library-updated"));
+      window.location.href = `/cuenta?next=${encodeURIComponent(
+        `/publicaciones/${slug}`
+      )}`;
       return;
     }
 
     setBusy(true);
-    const ok = await patchUserBook(slug, { purchased: true });
-    if (ok) setPurchased(true);
-    setBusy(false);
-  }
 
-  if (price <= 0) {
-    return (
-      <span className="rounded-full bg-emerald-400 px-6 py-3 font-semibold text-black">
-        Gratis
-      </span>
-    );
+    try {
+      const supabase = getSupabaseBrowserClient();
+      if (!supabase) throw new Error("Supabase no está configurado.");
+
+      const { data } = await supabase.auth.getSession();
+      const token = data.session?.access_token;
+      if (!token) throw new Error("Tu sesión expiró. Vuelve a iniciar sesión.");
+
+      const response = await fetch("/api/payments/mercadopago/create", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ slug }),
+      });
+
+      const result = (await response.json().catch(() => null)) as
+        | { checkoutUrl?: string; alreadyPurchased?: boolean; error?: string }
+        | null;
+
+      if (!response.ok) {
+        throw new Error(result?.error || "No se pudo iniciar la compra.");
+      }
+
+      if (result?.alreadyPurchased) {
+        window.location.reload();
+        return;
+      }
+
+      if (!result?.checkoutUrl) {
+        throw new Error("No se recibió la URL de pago.");
+      }
+
+      window.location.assign(result.checkoutUrl);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo iniciar la compra.");
+      setBusy(false);
+    }
   }
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex flex-col items-start gap-1.5">
       <button
-        onClick={purchase}
-        disabled={purchased || busy || loggedIn === null}
-        className={`rounded-full px-6 py-3 font-semibold transition disabled:opacity-70 ${
-          purchased ? "bg-emerald-400 text-black" : "bg-white text-black"
-        }`}
+        type="button"
+        onClick={buy}
+        disabled={busy}
+        className="rounded-full bg-[#d96822] px-6 py-3 font-black text-white shadow-[0_10px_24px_rgba(217,104,34,0.20)] transition hover:bg-[#be5717] disabled:cursor-wait disabled:opacity-60"
       >
-        {purchased ? "✓ Comprada" : `Comprar · $${price} MXN`}
+        {busy ? "Preparando pago..." : `Comprar · $${Math.round(priceMxn)} MXN`}
       </button>
 
-      {loggedIn === false && (
-        <Link href="/cuenta" className="text-xs text-zinc-500 underline">
-          Sincronizar
-        </Link>
+      {error && (
+        <p className="max-w-xs text-xs font-semibold leading-5 text-[#a84f58]">
+          {error}
+        </p>
       )}
     </div>
   );

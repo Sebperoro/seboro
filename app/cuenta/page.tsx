@@ -39,6 +39,7 @@ export default function CuentaPage() {
     event.preventDefault();
 
     const supabase = getSupabaseBrowserClient();
+
     if (!supabase) {
       setMessage("Falta conectar SEBORO con Supabase.");
       return;
@@ -58,7 +59,9 @@ export default function CuentaPage() {
       } else if (data.session) {
         setMessage("Cuenta creada. Ya has iniciado sesión.");
       } else {
-        setMessage("Cuenta creada. Revisa tu correo para confirmar el registro.");
+        setMessage(
+          "Cuenta creada. Revisa tu correo para confirmar el registro."
+        );
       }
     } else {
       const { error } = await supabase.auth.signInWithPassword({
@@ -66,7 +69,11 @@ export default function CuentaPage() {
         password,
       });
 
-      setMessage(error ? error.message : "Sesión iniciada correctamente.");
+      setMessage(
+        error
+          ? error.message
+          : "Sesión iniciada correctamente."
+      );
     }
 
     setBusy(false);
@@ -103,7 +110,6 @@ export default function CuentaPage() {
     if (error) {
       setMessage(error.message);
     } else {
-      // Mensaje neutro para no revelar si un correo existe o no.
       setMessage(
         "Si existe una cuenta con ese correo, recibirás un enlace para restablecer la contraseña."
       );
@@ -122,141 +128,261 @@ export default function CuentaPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#0a0a0b] text-white">
+    <main className="min-h-screen bg-[#f6f3ef] text-[#2b2521]">
       <TopNav />
 
-      <div className="mx-auto max-w-5xl px-5 py-12 md:px-8">
-        <section className="rounded-3xl border border-white/10 bg-gradient-to-br from-zinc-800 via-zinc-900 to-black p-7 md:p-10">
-          <p className="text-sm uppercase tracking-[0.2em] text-zinc-500">
-            Cuenta SEBORO
-          </p>
-          <h1 className="mt-2 text-4xl font-black md:text-5xl">
-            {currentEmail ? "Tu sesión está activa." : "Entra a tu biblioteca personal."}
-          </h1>
-          <p className="mt-4 max-w-2xl leading-7 text-zinc-400">
-            Con una cuenta, la biblioteca y el progreso pueden pertenecer a un usuario real en lugar de depender únicamente de este navegador.
-          </p>
-        </section>
-
+      <div className="mx-auto max-w-7xl px-5 pb-16 pt-8 md:px-8">
         {!configured ? (
-          <div className="mt-8 rounded-3xl border border-amber-300/20 bg-amber-300/10 p-6 text-amber-100">
-            <h2 className="text-xl font-bold">Todavía falta conectar Supabase</h2>
-            <p className="mt-2 text-sm leading-6 text-amber-100/80">
-              El código ya está preparado. Falta agregar el Project URL y la Publishable key en el archivo .env.local.
+          <section className="mx-auto max-w-3xl rounded-[28px] border border-[#ead5aa] bg-[#fffaf0] p-7 md:p-9">
+            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#8a682d]">
+              Configuración pendiente
             </p>
-          </div>
+
+            <h1 className="mt-2 text-3xl font-black">
+              Todavía falta conectar Supabase
+            </h1>
+
+            <p className="mt-3 text-sm leading-7 text-[#806f52]">
+              El código ya está preparado. Falta agregar el Project URL y la
+              Publishable key en el archivo .env.local.
+            </p>
+          </section>
         ) : currentEmail ? (
-          <section className="mt-8 rounded-3xl border border-white/10 bg-white/[0.03] p-6">
-            <p className="text-sm text-zinc-500">Sesión iniciada como</p>
-            <p className="mt-2 text-xl font-bold">{currentEmail}</p>
+          <div className="grid overflow-hidden rounded-[32px] border border-[#ded6cf] bg-white shadow-[0_20px_50px_rgba(62,45,34,0.08)] lg:grid-cols-[0.85fr_1.15fr]">
+            <section className="relative overflow-hidden bg-[#24201d] p-8 text-white md:p-10">
+              <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-[#d96822]/20 blur-3xl" />
+              <div className="absolute -bottom-24 -left-16 h-56 w-56 rounded-full bg-[#f0a06b]/10 blur-3xl" />
 
-            <div className="mt-6 flex flex-wrap gap-3">
-              <a
-                href="/biblioteca"
-                className="rounded-full bg-white px-5 py-2.5 text-sm font-bold text-black"
-              >
-                Abrir mi biblioteca
-              </a>
-              <button
-                onClick={signOut}
-                className="rounded-full border border-white/15 px-5 py-2.5 text-sm font-semibold"
-              >
-                Cerrar sesión
-              </button>
-            </div>
-          </section>
-        ) : (
-          <section className="mt-8 grid gap-6 lg:grid-cols-[.85fr_1.15fr]">
-            <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
-              <p className="text-sm uppercase tracking-[0.2em] text-zinc-500">
-                Acceso
-              </p>
-              <h2 className="mt-2 text-2xl font-bold">
-                {mode === "signin" ? "Iniciar sesión" : "Crear cuenta"}
-              </h2>
+              <div className="relative">
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#f2a36f]">
+                  SEBORO · CUENTA
+                </p>
 
-              <div className="mt-6 flex gap-2">
-                <button
-                  onClick={() => {
-                    setMode("signin");
-                    setMessage("");
-                  }}
-                  className={`rounded-full px-4 py-2 text-sm font-semibold ${
-                    mode === "signin" ? "bg-white text-black" : "border border-white/10"
-                  }`}
-                >
-                  Entrar
-                </button>
-                <button
-                  onClick={() => {
-                    setMode("signup");
-                    setMessage("");
-                  }}
-                  className={`rounded-full px-4 py-2 text-sm font-semibold ${
-                    mode === "signup" ? "bg-white text-black" : "border border-white/10"
-                  }`}
-                >
-                  Registrarme
-                </button>
-              </div>
-            </div>
+                <h1 className="mt-4 max-w-lg text-4xl font-black tracking-[-0.045em] md:text-5xl">
+                  Tu cuenta está conectada.
+                </h1>
 
-            <form
-              onSubmit={submit}
-              className="rounded-3xl border border-white/10 bg-white/[0.03] p-6"
-            >
-              <label className="text-sm font-semibold">Correo</label>
-              <input
-                type="email"
-                required
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                className="mt-2 w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 outline-none focus:border-white/25"
-                placeholder="tu@correo.com"
-              />
+                <p className="mt-4 max-w-lg text-sm leading-7 text-[#c9beb6]">
+                  Desde aquí se sincronizan tu biblioteca, progreso, perfil y
+                  preferencias entre dispositivos.
+                </p>
 
-              <label className="mt-5 block text-sm font-semibold">Contraseña</label>
-              <input
-                type="password"
-                required
-                minLength={6}
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                className="mt-2 w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 outline-none focus:border-white/25"
-                placeholder="Mínimo 6 caracteres"
-              />
+                <div className="mt-8 rounded-[22px] border border-white/10 bg-white/[0.05] p-5">
+                  <p className="text-[9px] font-black uppercase tracking-[0.15em] text-[#9f928a]">
+                    Sesión iniciada como
+                  </p>
 
-              <button
-                disabled={busy}
-                className="mt-6 rounded-full bg-white px-6 py-3 font-bold text-black disabled:opacity-50"
-              >
-                {busy
-                  ? "Procesando..."
-                  : mode === "signin"
-                  ? "Iniciar sesión"
-                  : "Crear cuenta"}
-              </button>
-
-              {mode === "signin" && (
-                <button
-                  type="button"
-                  onClick={sendPasswordRecovery}
-                  disabled={recoveryBusy}
-                  className="ml-3 mt-6 rounded-full border border-white/15 px-5 py-3 text-sm font-semibold text-zinc-300 transition hover:border-white/30 hover:text-white disabled:opacity-50"
-                >
-                  {recoveryBusy
-                    ? "Enviando..."
-                    : "Olvidé mi contraseña"}
-                </button>
-              )}
-
-              {message && (
-                <div className="mt-5 rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-zinc-300">
-                  {message}
+                  <p className="mt-2 break-all text-lg font-black">
+                    {currentEmail}
+                  </p>
                 </div>
-              )}
-            </form>
-          </section>
+              </div>
+            </section>
+
+            <section className="p-8 md:p-10">
+              <div className="max-w-xl">
+                <p className="text-[10px] font-black uppercase tracking-[0.17em] text-[#d96822]">
+                  Acceso personal
+                </p>
+
+                <h2 className="mt-2 text-3xl font-black tracking-[-0.03em]">
+                  Continúa donde lo dejaste
+                </h2>
+
+                <p className="mt-3 text-sm leading-7 text-[#81766e]">
+                  Tu cuenta mantiene sincronizada tu experiencia de lectura.
+                </p>
+
+                <div className="mt-7 grid gap-3 sm:grid-cols-2">
+                  <a
+                    href="/biblioteca"
+                    className="rounded-[18px] bg-[#d96822] px-5 py-4 text-center text-sm font-black text-white transition hover:bg-[#b95016]"
+                  >
+                    Abrir mi biblioteca
+                  </a>
+
+                  <button
+                    onClick={signOut}
+                    className="rounded-[18px] border border-[#ddd5cf] bg-[#faf8f6] px-5 py-4 text-sm font-black text-[#625851] transition hover:border-[#cbbdb3] hover:bg-white"
+                  >
+                    Cerrar sesión
+                  </button>
+                </div>
+
+                {message && (
+                  <div className="mt-5 rounded-[16px] border border-[#d7e0d9] bg-[#f2f8f3] p-4 text-sm font-bold text-[#486b55]">
+                    {message}
+                  </div>
+                )}
+              </div>
+            </section>
+          </div>
+        ) : (
+          <div className="grid overflow-hidden rounded-[32px] border border-[#ded6cf] bg-white shadow-[0_20px_55px_rgba(62,45,34,0.08)] lg:grid-cols-[0.95fr_1.05fr]">
+            {/* Lado visual: distinto al resto del sitio */}
+            <section className="relative order-2 min-h-0 overflow-hidden bg-[#24201d] p-8 text-white md:p-10 lg:order-1 lg:min-h-[560px]">
+              <div className="absolute inset-0">
+                <div className="absolute right-[-80px] top-[-80px] h-72 w-72 rounded-full bg-[#d96822]/25 blur-3xl" />
+                <div className="absolute bottom-[-100px] left-[-70px] h-72 w-72 rounded-full bg-[#8f4e2d]/20 blur-3xl" />
+              </div>
+
+              <div className="relative flex h-full flex-col justify-between">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#f2a36f]">
+                    SEBORO · TU ESPACIO
+                  </p>
+
+                  <h1 className="mt-4 max-w-lg text-4xl font-black tracking-[-0.05em] md:text-6xl">
+                    Tu biblioteca viaja contigo.
+                  </h1>
+
+                  <p className="mt-5 max-w-lg text-sm leading-7 text-[#c9beb6] md:text-base">
+                    Guarda historias, continúa lecturas y conserva tu identidad
+                    de lector desde cualquier dispositivo.
+                  </p>
+                </div>
+
+                <div className="mt-10 grid gap-3 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
+                  {[
+                    ["01", "Biblioteca sincronizada"],
+                    ["02", "Progreso guardado"],
+                    ["03", "Perfil y comunidad"],
+                  ].map(([number, label]) => (
+                    <div
+                      key={number}
+                      className="rounded-[18px] border border-white/10 bg-white/[0.05] p-4"
+                    >
+                      <p className="text-[9px] font-black text-[#f2a36f]">
+                        {number}
+                      </p>
+
+                      <p className="mt-2 text-sm font-black text-white">
+                        {label}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </section>
+
+            {/* Lado funcional */}
+            <section className="order-1 p-7 md:p-10 lg:order-2 lg:p-12">
+              <div className="mx-auto max-w-md">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-[0.17em] text-[#d96822]">
+                      Acceso
+                    </p>
+
+                    <h2 className="mt-2 text-3xl font-black tracking-[-0.035em]">
+                      {mode === "signin"
+                        ? "Bienvenido de nuevo"
+                        : "Crea tu cuenta"}
+                    </h2>
+                  </div>
+                </div>
+
+                <div className="mt-6 grid grid-cols-2 rounded-[16px] bg-[#f2eeea] p-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMode("signin");
+                      setMessage("");
+                    }}
+                    className={`rounded-[13px] px-4 py-2.5 text-sm font-black transition ${
+                      mode === "signin"
+                        ? "bg-white text-[#2b2521] shadow-sm"
+                        : "text-[#8a8078]"
+                    }`}
+                  >
+                    Entrar
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMode("signup");
+                      setMessage("");
+                    }}
+                    className={`rounded-[13px] px-4 py-2.5 text-sm font-black transition ${
+                      mode === "signup"
+                        ? "bg-white text-[#2b2521] shadow-sm"
+                        : "text-[#8a8078]"
+                    }`}
+                  >
+                    Registrarme
+                  </button>
+                </div>
+
+                <form onSubmit={submit} className="mt-7">
+                  <label className="text-sm font-black text-[#514841]">
+                    Correo
+                  </label>
+
+                  <input
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(event) =>
+                      setEmail(event.target.value)
+                    }
+                    className="mt-2 w-full rounded-[16px] border border-[#ddd6d0] bg-[#fffefd] px-4 py-3.5 text-sm outline-none transition placeholder:text-[#aaa099] focus:border-[#d6a985]"
+                    placeholder="tu@correo.com"
+                  />
+
+                  <label className="mt-5 block text-sm font-black text-[#514841]">
+                    Contraseña
+                  </label>
+
+                  <input
+                    type="password"
+                    required
+                    minLength={6}
+                    value={password}
+                    onChange={(event) =>
+                      setPassword(event.target.value)
+                    }
+                    className="mt-2 w-full rounded-[16px] border border-[#ddd6d0] bg-[#fffefd] px-4 py-3.5 text-sm outline-none transition placeholder:text-[#aaa099] focus:border-[#d6a985]"
+                    placeholder="Mínimo 6 caracteres"
+                  />
+
+                  <button
+                    disabled={busy}
+                    className="mt-6 w-full rounded-[16px] bg-[#d96822] px-6 py-3.5 text-sm font-black text-white transition hover:bg-[#b95016] disabled:opacity-50"
+                  >
+                    {busy
+                      ? "Procesando..."
+                      : mode === "signin"
+                      ? "Iniciar sesión"
+                      : "Crear cuenta"}
+                  </button>
+
+                  {mode === "signin" && (
+                    <button
+                      type="button"
+                      onClick={sendPasswordRecovery}
+                      disabled={recoveryBusy}
+                      className="mt-3 w-full rounded-[16px] border border-[#ddd5cf] bg-[#faf8f6] px-5 py-3.5 text-sm font-black text-[#6f655e] transition hover:bg-white disabled:opacity-50"
+                    >
+                      {recoveryBusy
+                        ? "Enviando..."
+                        : "Olvidé mi contraseña"}
+                    </button>
+                  )}
+
+                  {message && (
+                    <div className="mt-5 rounded-[16px] border border-[#e4ddd7] bg-[#faf8f6] p-4 text-sm font-bold leading-6 text-[#6f655e]">
+                      {message}
+                    </div>
+                  )}
+                </form>
+
+                <p className="mt-7 text-center text-xs leading-5 text-[#9a9088]">
+                  Tu correo y contraseña nunca forman parte de tu perfil público.
+                </p>
+              </div>
+            </section>
+          </div>
         )}
       </div>
     </main>

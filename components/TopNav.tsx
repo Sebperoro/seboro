@@ -3,11 +3,13 @@
 import Link from "next/link";
 import NotificationBell from "@/components/NotificationBell";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+
 import {
   getAccessProfile,
   type AccessProfile,
 } from "@/lib/access";
+import { getPendingAuthorApplicationCount } from "@/lib/adminPending";
 
 export default function TopNav() {
   const pathname = usePathname();
@@ -15,16 +17,24 @@ export default function TopNav() {
   const [profile, setProfile] =
     useState<AccessProfile | null>(null);
 
-  const [menuOpen, setMenuOpen] =
+  const [mobileOpen, setMobileOpen] =
     useState(false);
+
+  const [profileOpen, setProfileOpen] =
+    useState(false);
+
+  const [adminPending, setAdminPending] =
+    useState(0);
+
+  const profileMenuRef =
+    useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     let active = true;
 
     async function load() {
       try {
-        const result =
-          await getAccessProfile();
+        const result = await getAccessProfile();
 
         if (active) {
           setProfile(result);
@@ -66,8 +76,85 @@ export default function TopNav() {
   }, []);
 
   useEffect(() => {
-    setMenuOpen(false);
+    if (profile?.role !== "admin") {
+      setAdminPending(0);
+      return;
+    }
+
+    let active = true;
+
+    async function refreshAdminPending() {
+      try {
+        const count =
+          await getPendingAuthorApplicationCount();
+
+        if (active) {
+          setAdminPending(count);
+        }
+      } catch {
+        if (active) {
+          setAdminPending(0);
+        }
+      }
+    }
+
+    refreshAdminPending();
+
+    const interval =
+      window.setInterval(
+        refreshAdminPending,
+        30000
+      );
+
+    const handleFocus =
+      () => refreshAdminPending();
+
+    window.addEventListener(
+      "focus",
+      handleFocus
+    );
+
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+      window.removeEventListener(
+        "focus",
+        handleFocus
+      );
+    };
+  }, [profile?.role]);
+
+  useEffect(() => {
+    setMobileOpen(false);
+    setProfileOpen(false);
   }, [pathname]);
+
+  useEffect(() => {
+    function handleOutsideClick(
+      event: MouseEvent
+    ) {
+      if (
+        profileMenuRef.current &&
+        !profileMenuRef.current.contains(
+          event.target as Node
+        )
+      ) {
+        setProfileOpen(false);
+      }
+    }
+
+    document.addEventListener(
+      "mousedown",
+      handleOutsideClick
+    );
+
+    return () => {
+      document.removeEventListener(
+        "mousedown",
+        handleOutsideClick
+      );
+    };
+  }, []);
 
   const isReader =
     profile?.role === "reader";
@@ -79,38 +166,62 @@ export default function TopNav() {
   const isAdmin =
     profile?.role === "admin";
 
-  function linkClass(
+  function desktopLinkClass(
     active: boolean
   ) {
-    return active
-      ? "text-white"
-      : "text-zinc-400 transition hover:text-white";
+    return [
+      "relative py-2 text-sm font-semibold transition-colors",
+      active
+        ? "text-[#c95717]"
+        : "text-[#504a44] hover:text-[#211f1c]",
+    ].join(" ");
   }
 
   function mobileLinkClass(
     active: boolean
   ) {
-    return `rounded-2xl border px-4 py-3 text-sm font-semibold transition ${
+    return [
+      "rounded-2xl px-4 py-3 text-sm font-semibold transition",
       active
-        ? "border-white/20 bg-white/[0.07] text-white"
-        : "border-white/10 text-zinc-300 hover:border-white/20 hover:text-white"
-    }`;
+        ? "bg-[#fff0e5] text-[#b84f14]"
+        : "text-[#4e4944] hover:bg-[#f7f3ed]",
+    ].join(" ");
   }
 
+  function profileItemClass(
+    active: boolean
+  ) {
+    return [
+      "block w-full rounded-xl px-3 py-2.5 text-left text-sm font-semibold transition",
+      active
+        ? "bg-[#fff0e5] text-[#b84f14]"
+        : "text-[#4e4944] hover:bg-[#f7f3ed] hover:text-[#211f1c]",
+    ].join(" ");
+  }
+
+  const displayName =
+    profile?.display_name || "Perfil";
+
+  const initial =
+    displayName
+      .trim()
+      .charAt(0)
+      .toUpperCase() || "S";
+
   return (
-    <header className="relative z-50 border-b border-white/10 bg-[#0a0a0b] text-white">
-      <div className="mx-auto flex min-h-[84px] max-w-7xl items-center gap-4 px-4 sm:px-5 md:px-8 lg:gap-7">
+    <header className="sticky top-0 z-50 border-b border-[#ded6cd] bg-white shadow-[0_4px_18px_rgba(58,42,28,0.05)]">
+      <div className="mx-auto flex min-h-[74px] max-w-7xl items-center gap-5 px-4 sm:px-5 md:px-8">
         <Link
           href="/"
-          className="shrink-0 text-xl font-black tracking-[0.24em] sm:text-2xl sm:tracking-[0.28em]"
+          className="shrink-0 text-xl font-black tracking-[0.24em] text-[#d96822] sm:text-2xl sm:tracking-[0.28em]"
         >
           SEBORO
         </Link>
 
-        <nav className="hidden flex-1 items-center gap-6 text-sm font-semibold lg:flex">
+        <nav className="hidden flex-1 items-center gap-7 lg:flex">
           <Link
             href="/"
-            className={linkClass(
+            className={desktopLinkClass(
               pathname === "/"
             )}
           >
@@ -118,30 +229,8 @@ export default function TopNav() {
           </Link>
 
           <Link
-            href="/descubre"
-            className={linkClass(
-              pathname.startsWith(
-                "/descubre"
-              )
-            )}
-          >
-            Descubre
-          </Link>
-
-          <Link
-            href="/autores"
-            className={linkClass(
-              pathname.startsWith(
-                "/autores"
-              )
-            )}
-          >
-            Autores
-          </Link>
-
-          <Link
             href="/comunidad"
-            className={linkClass(
+            className={desktopLinkClass(
               pathname.startsWith(
                 "/comunidad"
               )
@@ -152,7 +241,7 @@ export default function TopNav() {
 
           <Link
             href="/biblioteca"
-            className={linkClass(
+            className={desktopLinkClass(
               pathname.startsWith(
                 "/biblioteca"
               )
@@ -160,104 +249,193 @@ export default function TopNav() {
           >
             Biblioteca
           </Link>
-
-          {isReader && (
-            <Link
-              href="/solicitar-autor"
-              className={linkClass(
-                pathname.startsWith(
-                  "/solicitar-autor"
-                )
-              )}
-            >
-              Publicar
-            </Link>
-          )}
-
-          {isAuthor && (
-            <Link
-              href="/autor"
-              className={linkClass(
-                pathname.startsWith(
-                  "/autor"
-                )
-              )}
-            >
-              Autor
-            </Link>
-          )}
-
-          {isAdmin && (
-            <Link
-              href="/admin"
-              className={linkClass(
-                pathname.startsWith(
-                  "/admin"
-                )
-              )}
-            >
-              Admin
-            </Link>
-          )}
         </nav>
 
-        <div className="ml-auto flex min-w-0 items-center gap-2 sm:gap-3">
-          <NotificationBell />
-
-          {profile && (
-            <Link
-              href={`/beta/feedback?from=${encodeURIComponent(pathname)}`}
-              className="hidden rounded-full border border-white/10 px-3 py-2 text-xs font-semibold text-zinc-400 transition hover:text-white xl:block"
-            >
-              Feedback
-            </Link>
-          )}
+        <div className="ml-auto flex items-center gap-2 sm:gap-3">
+          <div className="text-[#3f3a35]">
+            <NotificationBell />
+          </div>
 
           <Link
             href="/descubre"
-            className="hidden rounded-full border border-white/10 px-4 py-2 text-sm font-semibold xl:block"
+            aria-label="Buscar historias"
+            className="hidden h-10 items-center gap-2 rounded-full border border-[#ddd4ca] bg-[#fffdfb] px-4 text-sm font-semibold text-[#3f3a35] transition hover:border-[#cfc1b4] hover:bg-[#faf7f3] hover:text-[#211f1c] sm:flex"
           >
-            Buscar
+            <span aria-hidden="true">
+              ⌕
+            </span>
+
+            <span>
+              Buscar
+            </span>
           </Link>
 
-          <Link
-            href="/perfil"
-            className="hidden rounded-full border border-white/10 px-4 py-2 text-sm font-semibold md:block"
+          <div
+            ref={profileMenuRef}
+            className="relative hidden md:block"
           >
-            Perfil
-          </Link>
+            <button
+              type="button"
+              onClick={() =>
+                setProfileOpen(
+                  (current) => !current
+                )
+              }
+              aria-expanded={profileOpen}
+              aria-label="Abrir menú de perfil"
+              className="flex h-10 items-center gap-2 rounded-full border border-[#ddd4ca] bg-[#fffdfb] pr-4 pl-1.5 text-sm font-semibold text-[#211f1c] transition hover:border-[#cfc1b4] hover:bg-[#faf7f3]"
+            >
+              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#d96822] text-xs font-black text-white">
+                {initial}
+              </span>
 
-          <Link
-            href="/cuenta"
-            className="hidden max-w-[150px] truncate rounded-full bg-white px-4 py-2 text-sm font-bold text-black sm:block lg:max-w-[180px]"
-          >
-            {profile?.display_name ||
-              "Cuenta"}
-          </Link>
+              <span className="max-w-[110px] truncate">
+                {displayName}
+              </span>
+
+              <span
+                className={`text-xs text-[#817970] transition ${
+                  profileOpen
+                    ? "rotate-180"
+                    : ""
+                }`}
+              >
+                ▾
+              </span>
+            </button>
+
+            {profileOpen && (
+              <div className="absolute right-0 mt-3 w-64 rounded-2xl border border-[#ddd4ca] bg-white p-2 shadow-[0_18px_55px_rgba(55,40,25,0.16)]">
+                {profile && (
+                  <div className="mb-2 border-b border-[#eee8e0] px-3 py-3">
+                    <p className="truncate text-sm font-bold text-[#211f1c]">
+                      {displayName}
+                    </p>
+
+                    <p className="mt-0.5 text-xs capitalize text-[#817970]">
+                      {profile.role}
+                    </p>
+                  </div>
+                )}
+
+                <Link
+                  href="/perfil"
+                  className={profileItemClass(
+                    pathname.startsWith(
+                      "/perfil"
+                    )
+                  )}
+                >
+                  Mi perfil
+                </Link>
+
+                <Link
+                  href="/cuenta"
+                  className={profileItemClass(
+                    pathname.startsWith(
+                      "/cuenta"
+                    )
+                  )}
+                >
+                  Cuenta
+                </Link>
+
+                {profile && (
+                  <Link
+                    href={`/beta/feedback?from=${encodeURIComponent(
+                      pathname
+                    )}`}
+                    className={profileItemClass(
+                      pathname.startsWith(
+                        "/beta/feedback"
+                      )
+                    )}
+                  >
+                    Feedback
+                  </Link>
+                )}
+
+                {isReader && (
+                  <Link
+                    href="/solicitar-autor"
+                    className={profileItemClass(
+                      pathname.startsWith(
+                        "/solicitar-autor"
+                      )
+                    )}
+                  >
+                    Publicar en SEBORO
+                  </Link>
+                )}
+
+                {isAuthor && (
+                  <Link
+                    href="/autor"
+                    className={profileItemClass(
+                      pathname.startsWith(
+                        "/autor"
+                      )
+                    )}
+                  >
+                    Panel de autor
+                  </Link>
+                )}
+
+                {isAdmin && (
+                  <>
+                    <div className="my-2 border-t border-[#eee8e0]" />
+
+                    <Link
+                      href="/admin"
+                      className={profileItemClass(
+                        pathname.startsWith(
+                          "/admin"
+                        )
+                      )}
+                    >
+                      <span className="flex items-center justify-between gap-3">
+                        <span>Administración</span>
+
+                        {adminPending > 0 && (
+                          <span className="min-w-5 rounded-full bg-[#d96822] px-1.5 py-0.5 text-center text-[10px] font-black text-white">
+                            {adminPending > 99
+                              ? "99+"
+                              : adminPending}
+                          </span>
+                        )}
+                      </span>
+                    </Link>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
 
           <button
             type="button"
             onClick={() =>
-              setMenuOpen((current) => !current)
+              setMobileOpen(
+                (current) => !current
+              )
             }
             aria-label={
-              menuOpen
+              mobileOpen
                 ? "Cerrar menú"
                 : "Abrir menú"
             }
-            aria-expanded={menuOpen}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/10 lg:hidden"
+            aria-expanded={mobileOpen}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#ddd4ca] bg-[#fffdfb] text-[#211f1c] transition hover:bg-[#faf7f3] lg:hidden"
           >
             <span className="text-xl leading-none">
-              {menuOpen ? "×" : "☰"}
+              {mobileOpen ? "×" : "☰"}
             </span>
           </button>
         </div>
       </div>
 
-      {menuOpen && (
-        <div className="border-t border-white/10 bg-[#0a0a0b] px-4 pb-5 pt-4 lg:hidden">
-          <div className="mx-auto grid max-w-7xl gap-2 sm:grid-cols-2">
+      {mobileOpen && (
+        <div className="border-t border-[#e5ddd4] bg-white px-4 pb-5 pt-4 shadow-[0_12px_30px_rgba(55,40,25,0.06)] lg:hidden">
+          <div className="mx-auto grid max-w-7xl gap-1 sm:grid-cols-2">
             <Link
               href="/"
               className={mobileLinkClass(
@@ -265,28 +443,6 @@ export default function TopNav() {
               )}
             >
               Inicio
-            </Link>
-
-            <Link
-              href="/descubre"
-              className={mobileLinkClass(
-                pathname.startsWith(
-                  "/descubre"
-                )
-              )}
-            >
-              Descubre / Buscar
-            </Link>
-
-            <Link
-              href="/autores"
-              className={mobileLinkClass(
-                pathname.startsWith(
-                  "/autores"
-                )
-              )}
-            >
-              Autores
             </Link>
 
             <Link
@@ -312,6 +468,19 @@ export default function TopNav() {
             </Link>
 
             <Link
+              href="/descubre"
+              className={mobileLinkClass(
+                pathname.startsWith(
+                  "/descubre"
+                )
+              )}
+            >
+              Buscar
+            </Link>
+
+            <div className="my-2 border-t border-[#eee8e0] sm:col-span-2" />
+
+            <Link
               href="/perfil"
               className={mobileLinkClass(
                 pathname.startsWith(
@@ -319,7 +488,7 @@ export default function TopNav() {
                 )
               )}
             >
-              Perfil
+              Mi perfil
             </Link>
 
             <Link
@@ -330,14 +499,14 @@ export default function TopNav() {
                 )
               )}
             >
-              {profile?.display_name
-                ? `Cuenta · ${profile.display_name}`
-                : "Cuenta"}
+              Cuenta
             </Link>
 
             {profile && (
               <Link
-                href={`/beta/feedback?from=${encodeURIComponent(pathname)}`}
+                href={`/beta/feedback?from=${encodeURIComponent(
+                  pathname
+                )}`}
                 className={mobileLinkClass(
                   pathname.startsWith(
                     "/beta/feedback"
@@ -357,7 +526,7 @@ export default function TopNav() {
                   )
                 )}
               >
-                Publicar
+                Publicar en SEBORO
               </Link>
             )}
 
@@ -370,7 +539,7 @@ export default function TopNav() {
                   )
                 )}
               >
-                Autor
+                Panel de autor
               </Link>
             )}
 
@@ -383,7 +552,17 @@ export default function TopNav() {
                   )
                 )}
               >
-                Admin
+                <span className="flex items-center justify-between gap-3">
+                  <span>Administración</span>
+
+                  {adminPending > 0 && (
+                    <span className="min-w-5 rounded-full bg-[#d96822] px-1.5 py-0.5 text-center text-[10px] font-black text-white">
+                      {adminPending > 99
+                        ? "99+"
+                        : adminPending}
+                    </span>
+                  )}
+                </span>
               </Link>
             )}
           </div>

@@ -1,22 +1,20 @@
-import { notFound } from "next/navigation";
 import TopNav from "@/components/TopNav";
 import AuthorWorkPanel from "@/components/AuthorWorkPanel";
-import { getBook } from "@/data/books";
 
 export default async function AutorObraPage({
   params,
 }: {
-  params: Promise<{ slug: string }>;
+  params: Promise<{
+    slug: string;
+  }>;
 }) {
   const { slug } = await params;
-  const book = getBook(slug);
-
-  if (!book) notFound();
 
   return (
-    <main className="min-h-screen bg-[#0a0a0b] text-white">
+    <main className="min-h-screen bg-[#faf9f7] text-[#211f1c]">
       <TopNav />
-      <AuthorWorkPanel book={book} />
+
+      <AuthorWorkPanel slug={slug} />
     </main>
   );
 }

@@ -20,7 +20,7 @@ export async function getPublishedLibraryCatalog(): Promise<
   const supabase = getSupabaseBrowserClient();
   if (!supabase) return [];
 
-  const works = await getPublishedWorks();
+  const works = await getPublishedWorks({ includeTest: true });
   if (works.length === 0) return [];
 
   const ids = works.map((work) => work.id);

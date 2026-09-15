@@ -65,27 +65,6 @@ export async function ensureMyProfile(): Promise<SeboroProfile | null> {
   return data as SeboroProfile;
 }
 
-export async function activateAuthorRole() {
-  const supabase = client();
-  const user = await getCurrentUser();
-  if (!user) throw new Error("Debes iniciar sesión.");
-
-  await ensureMyProfile();
-
-  const { data, error } = await supabase
-    .from("profiles")
-    .update({
-      role: "author",
-      updated_at: new Date().toISOString(),
-    })
-    .eq("user_id", user.id)
-    .select("*")
-    .single();
-
-  if (error) throw new Error(error.message);
-  return data as SeboroProfile;
-}
-
 export async function claimAuthorWork(bookSlugValue: string) {
   const supabase = client();
   const user = await getCurrentUser();

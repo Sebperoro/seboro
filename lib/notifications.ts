@@ -29,7 +29,11 @@ export type NotificationType =
   | "community_restricted"
   | "community_restriction_lifted"
   | "beta_feedback_admin"
-  | "beta_feedback_updated";
+  | "beta_feedback_updated"
+  | "author_application_approved"
+  | "author_application_rejected"
+  | "author_application_pending_admin"
+  | "work_review_pending_admin";
 
 export type SeboroNotification = {
   id: string;
@@ -371,7 +375,7 @@ export async function getFollowingOverview(): Promise<FollowingOverview> {
       .select("work_id")
       .eq("follower_id", user.id),
     getPublicAuthors(),
-    getPublishedWorks(),
+    getPublishedWorks({ includeTest: true }),
   ]);
 
   if (authorFollowResult.error) {
